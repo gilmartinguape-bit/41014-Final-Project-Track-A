@@ -61,3 +61,42 @@ def wheel_speeds_to_control(
     ])
 
     return control
+
+def motion_jacobian(
+    state,
+    control,
+    dt
+):
+    """
+    Jacobian of the nonlinear motion model
+    with respect to the state.
+
+    State:
+        [x, y, theta]
+
+    Control:
+        [v, omega]
+    """
+
+    theta = state[2]
+    v = control[0]
+
+    F = np.array([
+        [
+            1.0,
+            0.0,
+            -v * np.sin(theta) * dt
+        ],
+        [
+            0.0,
+            1.0,
+            v * np.cos(theta) * dt
+        ],
+        [
+            0.0,
+            0.0,
+            1.0
+        ]
+    ])
+
+    return F
