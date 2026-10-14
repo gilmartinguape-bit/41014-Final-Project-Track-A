@@ -2,6 +2,7 @@ import numpy as np
 
 from src.config import DT
 from src.model import robot_step
+from src.model import wheel_speeds_to_control
 
 
 state = np.array([
@@ -119,3 +120,29 @@ for step in range(20):
 
 print("State after rotating for 1 second:")
 print(state)
+
+print()
+print("----- WHEEL SPEED TEST: STRAIGHT -----")
+
+control = wheel_speeds_to_control(
+    omega_left=5.0,
+    omega_right=5.0,
+    wheel_radius=0.033,
+    wheel_base=0.160
+)
+
+print("Control from equal wheel speeds:")
+print(control)
+
+print()
+print("----- WHEEL SPEED TEST: TURNING -----")
+
+control = wheel_speeds_to_control(
+    omega_left=3.0,
+    omega_right=5.0,
+    wheel_radius=0.033,
+    wheel_base=0.160
+)
+
+print("Control from unequal wheel speeds:")
+print(control)
