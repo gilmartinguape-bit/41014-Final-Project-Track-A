@@ -48,4 +48,59 @@ class PoseEKF:
             self.Q
         )
 
+    def update_pose(
+        self,
+        measurement,
+        measurement_noise_covariance
+    ):
+        """
+        EKF correction using camera/ArUco pose measurement.
+        """
+
+        H = np.eye(3)
+
+        innovation = (
+            measurement
+            -
+            self.state
+        )
+
+        # Wrap heading innovation to [-pi, pi)
+        innovation[2] = (
+            innovation[2] + np.pi
+        ) % (
+            2.0 * np.pi
+        ) - np.pi
+
+
+        S = (
+            H
+            @ self.P
+            @ H.T
+            +
+            measurement_noise_covariance
+        )
+
+
+        K = (
+            self.P
+            @ H.T
+            @ np.linalg.inv(S)
+        )
+
+
+        self.state = (
+            self.state
+            +
+            K @ innovation
+        )
+
+
+        I = np.eye(3)
+
+        self.P = (
+            (I - K @ H)
+            @ self.P
+        )
+
     
