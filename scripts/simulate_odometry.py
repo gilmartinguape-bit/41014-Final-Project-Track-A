@@ -49,6 +49,8 @@ omega_right_true = 5.0
 # ---------------------------------
 
 encoder_sigma = 0.15
+encoder_bias_left = 0.00
+encoder_bias_right = 0.05
 
 
 # ---------------------------------
@@ -109,7 +111,9 @@ for step in range(number_of_steps):
         omega_right_true,
         encoder_sigma,
         encoder_sigma,
-        rng
+        rng,
+        encoder_bias_left,
+        encoder_bias_right
     )
 
 
