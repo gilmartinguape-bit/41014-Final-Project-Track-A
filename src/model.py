@@ -1,5 +1,7 @@
 import numpy as np
 
+from src.utils import wrap_angle
+
 
 def robot_step(state, control, dt):
     """
@@ -18,8 +20,10 @@ def robot_step(state, control, dt):
 
     x_next = x + v * np.cos(theta) * dt
     y_next = y + v * np.sin(theta) * dt
-    theta_next = theta + omega * dt
-
+    theta_next = wrap_angle(
+        theta + omega * dt
+    )
+    
     next_state = np.array([
         x_next,
         y_next,
