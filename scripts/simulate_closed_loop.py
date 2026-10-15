@@ -99,11 +99,11 @@ A, B, K = design_lqr(
 encoder_sigma = 0.15
 
 encoder_bias_left = 0.00
-encoder_bias_right = 0.05
+encoder_bias_right = 0.00
 
 
 marker_position = np.array([
-    1.0,
+    3.8,
     0.0
 ])
 
@@ -456,6 +456,34 @@ heading_rmse = np.sqrt(
     np.mean(
         heading_error_history**2
     )
+)
+
+
+final_true_lateral_error = true_state[1]
+
+final_true_heading_error = (
+    true_state[2] + np.pi
+) % (
+    2.0 * np.pi
+) - np.pi
+
+
+print()
+
+print("Final true lateral error:")
+print(
+    final_true_lateral_error,
+    "m"
+)
+
+print()
+
+print("Final true heading error:")
+print(
+    np.degrees(
+        final_true_heading_error
+    ),
+    "degrees"
 )
 
 
