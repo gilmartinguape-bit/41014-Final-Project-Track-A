@@ -64,6 +64,92 @@
             rgba="0.7 0.2 0.2 1"
         />
 
+        <geom
+            name="docking_panel"
+            type="box"
+            pos="1.80 0 0.35"
+            size="0.03 0.30 0.35"
+            rgba="1 1 1 1"
+        />
+
+        <geom
+            name="aruco_background"
+            type="box"
+            pos="1.765 0 0.35"
+            size="0.005 0.15 0.15"
+            rgba="0 0 0 1"
+        />
+
+        <!-- Row 1 -->
+        <geom 
+            name="aruco_w_11" 
+            type="box"
+            pos="1.755 0.075 0.425"
+            size="0.004 0.025 0.025"
+            rgba="1 1 1 1"
+        />
+
+        <geom 
+            name="aruco_w_13" 
+            type="box"
+            pos="1.755 -0.025 0.425"
+            size="0.004 0.025 0.025"
+            rgba="1 1 1 1"
+        />
+
+        <geom 
+            name="aruco_w_14" 
+            type="box"
+            pos="1.755 -0.075 0.425"
+            size="0.004 0.025 0.025"
+            rgba="1 1 1 1"/>
+
+
+        <!-- Row 2 -->
+        <geom 
+            name="aruco_w_22" 
+            type="box"
+            pos="1.755 0.025 0.375"
+            size="0.004 0.025 0.025"
+            rgba="1 1 1 1"
+        />
+
+        <geom 
+            name="aruco_w_24" 
+            type="box"
+            pos="1.755 -0.075 0.375"
+            size="0.004 0.025 0.025"
+            rgba="1 1 1 1"
+        />
+
+
+        <!-- Row 3 -->
+        <geom 
+            name="aruco_w_33" 
+            type="box"
+            pos="1.755 -0.025 0.325"
+            size="0.004 0.025 0.025"
+            rgba="1 1 1 1"
+        />
+
+        <geom 
+            name="aruco_w_34" 
+            type="box"
+            pos="1.755 -0.075 0.325"
+            size="0.004 0.025 0.025"
+            rgba="1 1 1 1"
+        />
+
+
+        <!-- Row 4 -->
+        <geom 
+            name="aruco_w_43" 
+            type="box"
+            pos="1.755 -0.025 0.275"
+            size="0.004 0.025 0.025"
+            rgba="1 1 1 1"
+        />
+
         <body
             name="robot"
             pos="0 0 0"
@@ -98,6 +184,20 @@
                 rgba="0.1 0.3 0.8 1"
             />
 
+            <site
+                name="lidar_site"
+                pos="0 0 0.16"
+                size="0.01"
+                rgba="0 1 0 1"
+            />
+
+            <camera
+                name="front_camera"
+                pos="0.09 0 0.14"
+                xyaxes="0 -1 0 0 0 1"
+                fovy="70"
+            />
+
 
             <body
                 name="left_wheel_body"
@@ -120,17 +220,10 @@
                     conaffinity="0"
                     rgba="0.05 0.05 0.05 1"
                 />
-
-                <site
-                    name="lidar_site"
-                    pos="0 0 0.16"
-                    size="0.01"
-                    rgba="0 1 0 1"
-                />
-
+            
             </body>
 
-
+            
             <body
                 name="right_wheel_body"
                 pos="0 -0.080 0.035"
