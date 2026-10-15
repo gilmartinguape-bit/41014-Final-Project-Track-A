@@ -96,11 +96,33 @@ class PoseEKF:
         )
 
 
+        self.state[2] = (
+            self.state[2] + np.pi
+        ) % (
+            2.0 * np.pi
+        ) - np.pi
+
+
         I = np.eye(3)
 
-        self.P = (
-            (I - K @ H)
-            @ self.P
+        A = (
+            I - K @ H
         )
+        
+        self.P = (
+            A
+            @ self.P
+            @ A.T
+            +
+            K
+            @ measurement_noise_covariance
+            @ K.T
+        )
+
+        self.P = (
+            self.P
+            +
+            self.P.T
+        ) / 2.0
 
     
