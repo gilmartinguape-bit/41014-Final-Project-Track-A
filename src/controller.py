@@ -127,3 +127,47 @@ def lqr_control(
         lateral_error,
         heading_error
     )
+
+def docking_forward_speed(
+    estimated_x,
+    target_x,
+    max_speed,
+    slow_distance,
+    stop_tolerance
+):
+    """
+    Generate forward speed for approach to docking target.
+
+    Uses estimated state only.
+    """
+
+    distance_remaining = (
+        target_x - estimated_x
+    )
+
+
+    if distance_remaining <= stop_tolerance:
+
+        return 0.0
+
+
+    if distance_remaining <= slow_distance:
+
+        scale = (
+            distance_remaining
+            /
+            slow_distance
+        )
+
+        scale = np.clip(
+            scale,
+            0.15,
+            1.0
+        )
+
+        return (
+            max_speed * scale
+        )
+
+
+    return max_speed
