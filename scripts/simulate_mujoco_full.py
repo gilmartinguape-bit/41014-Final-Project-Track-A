@@ -1,3 +1,5 @@
+import time
+
 from pathlib import Path
 
 import cv2
@@ -23,7 +25,7 @@ from src.controller import lqr_control
 from src.controller import docking_forward_speed
 
 from src.lidar import cast_lidar_ray
-from src.lidar import lidar_safety_override
+from src.lidar import lidar_safety_state_machine
 
 from src.vision import (
     aruco_measurement_to_robot_pose
@@ -286,9 +288,18 @@ lidar_max_range = 3.5
 
 slow_obstacle_distance = 0.65
 
-stop_obstacle_distance = 0.30
+avoidance_enter_distance = 0.30
+
+avoidance_exit_distance = 0.60
 
 avoidance_turn_rate = 0.8
+
+
+recovery_speed = 0.10
+
+recovery_steps = int(
+    4.5 / DT
+)
 
 
 # ==================================================
@@ -299,6 +310,20 @@ simulation_time = 20.0
 
 number_of_steps = int(
     simulation_time / DT
+)
+
+# ==================================================
+# VIEWER PLAYBACK SETTINGS
+# ==================================================
+
+# 1.0 = approximately real time
+# 0.5 = half speed
+# 2.0 = twice real time
+
+playback_speed = 0.5
+
+viewer_step_time = (
+    DT / playback_speed
 )
 
 
@@ -343,6 +368,18 @@ control_command = np.array([
     0.0
 ])
 
+avoidance_mode = "NORMAL"
+
+avoidance_turn_direction = 0.0
+
+recovery_steps_remaining = 0
+
+avoidance_steps_remaining = 0
+
+minimum_avoidance_steps = int(
+    0.75 / DT
+)
+
 
 # ==================================================
 # VIEWER
@@ -353,11 +390,17 @@ with mujoco.viewer.launch_passive(
     data
 ) as viewer:
 
+    previous_avoidance_mode = (
+    avoidance_mode
+    )
+
     # ==================================================
     # MAIN LOOP
     # ==================================================
 
     for step in range(number_of_steps):
+
+        step_start_time = time.time()
 
         if not viewer.is_running():
             break
@@ -673,15 +716,43 @@ with mujoco.viewer.launch_passive(
         # 9. LIDAR SAFETY OVERRIDE
         # ==============================================
 
-        control_command = lidar_safety_override(
+        (
+            control_command,
+            avoidance_mode,
+            avoidance_turn_direction,
+            recovery_steps_remaining,
+            avoidance_steps_remaining
+        ) = lidar_safety_state_machine(
             lqr_command[0],
             lqr_command[1],
             left_distance,
             front_distance,
             right_distance,
+            avoidance_mode,
+            avoidance_turn_direction,
+            recovery_steps_remaining,
+            avoidance_steps_remaining,
             slow_obstacle_distance,
-            stop_obstacle_distance,
-            avoidance_turn_rate
+            avoidance_enter_distance,
+            avoidance_exit_distance,
+            avoidance_turn_rate,
+            recovery_speed,
+            recovery_steps,
+            minimum_avoidance_steps
+        )
+
+
+        if avoidance_mode != previous_avoidance_mode:
+
+            print(
+                f"AVOIDANCE MODE: "
+                f"{previous_avoidance_mode}"
+                f" -> "
+                f"{avoidance_mode}"
+        )
+
+        previous_avoidance_mode = (
+            avoidance_mode
         )
 
 
@@ -789,6 +860,21 @@ with mujoco.viewer.launch_passive(
             )
         )
 
+        if step % int(
+            1.0 / DT
+        ) == 0:
+
+            print(
+                f"Simulation time: "
+                f"{step * DT:.1f} s | "
+                f"x={true_state[0]:.2f} m | "
+                f"y={true_state[1]:.2f} m | "
+                f"heading="
+                f"{np.degrees(true_state[2]):.1f} deg | "
+                f"mode={avoidance_mode} | "
+                f"front={front_distance:.2f} m"
+            )
+
 
         # ==============================================
         # 12. VIEWER
@@ -796,6 +882,54 @@ with mujoco.viewer.launch_passive(
 
         viewer.sync()
 
+
+        # ==============================================
+        # REAL-TIME / SLOW-MOTION PLAYBACK
+        # ==============================================
+
+        processing_time = (
+            time.time()
+            - step_start_time
+        )
+
+
+        sleep_time = (
+            viewer_step_time
+            -
+            processing_time
+        )
+
+
+        if sleep_time > 0.0:
+
+            time.sleep(
+                sleep_time
+        )
+
+
+    # ==================================================
+    # HOLD FINAL ROBOT POSE FOR VIEWING
+    # ==================================================
+
+    print()
+    print("Simulation complete.")
+    print("Holding final MuJoCo view for 5 seconds...")
+
+
+    hold_start = time.time()
+
+
+    while (
+        viewer.is_running()
+        and
+        time.time() - hold_start < 5.0
+    ):
+
+        viewer.sync()
+
+        time.sleep(
+            0.05
+        )
 
 # ==================================================
 # CONVERT ARRAYS
@@ -1111,9 +1245,15 @@ plt.axhline(
 )
 
 plt.axhline(
-    y=stop_obstacle_distance,
+    y=avoidance_enter_distance,
     linestyle=":",
-    label="Stop threshold"
+    label="Avoidance enter threshold"
+)
+
+plt.axhline(
+    y=avoidance_exit_distance,
+    linestyle="-.",
+    label="Avoidance exit threshold"
 )
 
 plt.xlabel(

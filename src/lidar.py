@@ -162,3 +162,199 @@ def lidar_safety_override(
         safe_v,
         safe_omega
     ])
+
+def lidar_safety_state_machine(
+    linear_velocity,
+    angular_velocity,
+    left_distance,
+    front_distance,
+    right_distance,
+    mode,
+    turn_direction,
+    recovery_steps_remaining,
+    avoidance_steps_remaining,
+    slow_distance,
+    enter_distance,
+    exit_distance,
+    avoidance_turn_rate,
+    recovery_speed,
+    recovery_steps,
+    minimum_avoidance_steps
+):
+    """
+    Stateful LiDAR obstacle-avoidance layer.
+
+    Modes:
+        NORMAL
+        AVOIDING
+        RECOVERY
+
+    Returns:
+        safe_control
+        new_mode
+        new_turn_direction
+        new_recovery_steps_remaining
+        new_avoidance_steps_remaining
+    """
+
+    safe_v = linear_velocity
+    safe_omega = angular_velocity
+
+
+    # ==================================================
+    # MODE 1 — NORMAL
+    # ==================================================
+
+    if mode == "NORMAL":
+
+        # Obstacle is dangerously close.
+        if front_distance <= enter_distance:
+
+            mode = "AVOIDING"
+
+            avoidance_steps_remaining = (
+                minimum_avoidance_steps
+            )
+
+            # Lock the turn direction based on
+            # whichever side has more clearance.
+            if left_distance > right_distance:
+
+                turn_direction = 1.0
+
+            else:
+
+                turn_direction = -1.0
+
+
+            safe_v = 0.0
+
+            safe_omega = (
+                turn_direction
+                * avoidance_turn_rate
+            )
+
+
+        # Obstacle is approaching,
+        # but not yet inside the avoidance threshold.
+        elif front_distance <= slow_distance:
+
+            scale = (
+                front_distance
+                - enter_distance
+            ) / (
+                slow_distance
+                - enter_distance
+            )
+
+
+            scale = np.clip(
+                scale,
+                0.20,
+                1.0
+            )
+
+
+            safe_v = (
+                linear_velocity
+                * scale
+            )
+
+
+    # ==================================================
+    # MODE 2 — AVOIDING
+    # ==================================================
+
+    elif mode == "AVOIDING":
+
+        if avoidance_steps_remaining > 0:
+
+            avoidance_steps_remaining -= 1
+
+        # Stay committed to the chosen turn.
+        safe_v = 0.0
+
+        safe_omega = (
+            turn_direction
+            * avoidance_turn_rate
+        )
+
+
+        # Do NOT leave avoidance as soon as
+        # the obstacle is barely outside enter_distance.
+        #
+        # Require the larger exit_distance.
+        if (
+            front_distance >= exit_distance
+            and
+            avoidance_steps_remaining <= 0
+        ):
+
+            mode = "RECOVERY"
+
+            recovery_steps_remaining = (
+                recovery_steps
+            )
+
+
+            safe_v = recovery_speed
+
+            # Drive straight along the cleared avoidance heading.
+            safe_omega = 0.0
+
+
+    # ==================================================
+    # MODE 3 — RECOVERY
+    # ==================================================
+
+    elif mode == "RECOVERY":
+
+        # If the obstacle becomes dangerous again,
+        # immediately return to avoidance.
+        if front_distance <= enter_distance:
+
+            mode = "AVOIDING"
+
+            avoidance_steps_remaining = (
+                minimum_avoidance_steps
+            )
+
+            safe_v = 0.0
+
+            safe_omega = (
+                turn_direction
+                * avoidance_turn_rate
+            )
+
+
+        elif recovery_steps_remaining > 0:
+
+            recovery_steps_remaining -= 1
+
+            safe_v = recovery_speed
+
+            safe_omega = 0.0
+
+
+        else:
+
+            # Recovery complete.
+            # Give control back to LQR.
+            mode = "NORMAL"
+
+            turn_direction = 0.0
+
+            safe_v = linear_velocity
+            safe_omega = angular_velocity
+
+
+    return (
+        np.array([
+            safe_v,
+            safe_omega
+        ]),
+        mode,
+        turn_direction,
+        recovery_steps_remaining,
+        avoidance_steps_remaining
+    )
