@@ -16,6 +16,53 @@
             rgba="0.8 0.8 0.8 1"
         />
 
+        <geom
+            name="north_wall"
+            type="box"
+            pos="0 2.0 0.25"
+            size="2.0 0.05 0.25"
+            rgba="0.4 0.4 0.4 1"
+        />
+
+        <geom
+            name="south_wall"
+            type="box"
+            pos="0 -2.0 0.25"
+            size="2.0 0.05 0.25"
+            rgba="0.4 0.4 0.4 1"
+        />
+
+        <geom
+            name="east_wall"
+            type="box"
+            pos="2.0 0 0.25"
+            size="0.05 2.0 0.25"
+            rgba="0.4 0.4 0.4 1"
+        />
+
+        <geom
+            name="west_wall"
+            type="box"
+            pos="-2.0 0 0.25"
+            size="0.05 2.0 0.25"
+            rgba="0.4 0.4 0.4 1"
+        />
+
+        <geom
+            name="obstacle_1"
+            type="box"
+            pos="0.8 0.3 0.20"
+            size="0.20 0.20 0.20"
+            rgba="0.7 0.2 0.2 1"
+        />
+
+        <geom
+            name="obstacle_2"
+            type="box"
+            pos="-0.6 0.9 0.20"
+            size="0.25 0.18 0.20"
+            rgba="0.7 0.2 0.2 1"
+        />
 
         <body
             name="robot"
@@ -72,6 +119,13 @@
                     contype="0"
                     conaffinity="0"
                     rgba="0.05 0.05 0.05 1"
+                />
+
+                <site
+                    name="lidar_site"
+                    pos="0 0 0.16"
+                    size="0.01"
+                    rgba="0 1 0 1"
                 />
 
             </body>
