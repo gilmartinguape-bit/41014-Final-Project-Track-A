@@ -451,13 +451,17 @@ lateral_rmse = np.sqrt(
     )
 )
 
-
 heading_rmse = np.sqrt(
     np.mean(
         heading_error_history**2
     )
 )
 
+final_position_estimation_error = np.sqrt(
+    (ekf.state[0] - true_state[0])**2
+    +
+    (ekf.state[1] - true_state[1])**2
+)
 
 final_true_lateral_error = true_state[1]
 
@@ -486,6 +490,13 @@ print(
     "degrees"
 )
 
+print()
+
+print("Final EKF position estimation error:")
+print(
+    final_position_estimation_error,
+    "m"
+)
 
 # --------------------------------------------------
 # PRINT RESULTS
