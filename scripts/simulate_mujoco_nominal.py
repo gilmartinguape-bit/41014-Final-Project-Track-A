@@ -179,11 +179,11 @@ target_pose = np.array([
 
 target_x = target_pose[0]
 
+final_docking_start_x = 0.95
+
 slow_distance = 0.50
 
 stop_tolerance = 0.03
-
-final_docking_start_x = 0.95
 
 
 # ==================================================

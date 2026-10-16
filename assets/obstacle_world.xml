@@ -195,7 +195,7 @@
                 name="front_camera"
                 pos="0.09 0 0.14"
                 xyaxes="0 -1 0 0 0 1"
-                fovy="70"
+                fovy="90"
             />
 
 

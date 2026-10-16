@@ -23,6 +23,7 @@ from src.ekf import PoseEKF
 from src.controller import design_lqr
 from src.controller import lqr_control
 from src.controller import docking_forward_speed
+from src.controller import docking_pose_control
 
 from src.lidar import cast_lidar_ray
 from src.lidar import lidar_safety_state_machine
@@ -170,7 +171,15 @@ A, B, K = design_lqr(
 # DOCKING TARGET
 # ==================================================
 
-target_x = 1.20
+target_pose = np.array([
+    1.20,
+    0.0,
+    0.0
+])
+
+target_x = target_pose[0]
+
+final_docking_start_x = 0.95
 
 slow_distance = 0.50
 
@@ -202,7 +211,7 @@ renderer = mujoco.Renderer(
 )
 
 
-fovy_deg = 70.0
+fovy_deg = 90.0
 
 fovy_rad = np.deg2rad(
     fovy_deg
@@ -631,30 +640,81 @@ with mujoco.viewer.launch_passive(
 
 
         # ==============================================
-        # 7. LQR + DOCKING SPEED
+        # 7. CONTROLLER
         #
-        # USES EKF ESTIMATE ONLY
+        # Controller uses EKF estimate only.
         # ==============================================
 
-        forward_speed_command = (
-            docking_forward_speed(
-                ekf.state[0],
-                target_x,
-                max_forward_speed,
-                slow_distance,
-                stop_tolerance
+        if ekf.state[0] < final_docking_start_x:
+
+            # ------------------------------------------
+            # PHASE 1:
+            # LQR APPROACH
+            # ------------------------------------------
+
+            forward_speed_command = (
+                docking_forward_speed(
+                    ekf.state[0],
+                    target_x,
+                    max_forward_speed,
+                    slow_distance,
+                    stop_tolerance
+                )
             )
-        )
 
 
-        lqr_command, estimated_lateral_error, estimated_heading_error = (
-            lqr_control(
+            lqr_command, estimated_lateral_error, estimated_heading_error = (
+                lqr_control(
+                    ekf.state,
+                    K,
+                    forward_speed_command,
+                    omega_limit
+                )
+            )
+
+
+            nominal_control_command = (
+                lqr_command
+            )
+
+            controller_mode = "LQR_APPROACH"
+
+
+        else:
+
+            # ------------------------------------------
+            # PHASE 2:
+            # FINAL POSE DOCKING
+            # ------------------------------------------
+
+            (
+                pose_command,
+                docking_distance_error,
+                docking_heading_error
+            ) = docking_pose_control(
                 ekf.state,
-                K,
-                forward_speed_command,
-                omega_limit
+                target_pose
             )
-        )
+
+
+            nominal_control_command = (
+                pose_command
+            )
+
+
+            estimated_lateral_error = (
+                ekf.state[1]
+                - target_pose[1]
+            )
+
+
+            estimated_heading_error = wrap_angle(
+                ekf.state[2]
+                - target_pose[2]
+            )
+
+
+            controller_mode = "FINAL_DOCK"
 
 
         # ==============================================
@@ -723,8 +783,8 @@ with mujoco.viewer.launch_passive(
             recovery_steps_remaining,
             avoidance_steps_remaining
         ) = lidar_safety_state_machine(
-            lqr_command[0],
-            lqr_command[1],
+            nominal_control_command[0],
+            nominal_control_command[1],
             left_distance,
             front_distance,
             right_distance,
@@ -872,6 +932,7 @@ with mujoco.viewer.launch_passive(
                 f"heading="
                 f"{np.degrees(true_state[2]):.1f} deg | "
                 f"mode={avoidance_mode} | "
+                f"controller={controller_mode} | "
                 f"front={front_distance:.2f} m"
             )
 
@@ -999,6 +1060,21 @@ final_true_heading_error = wrap_angle(
     true_state[2]
 )
 
+final_x_docking_error = (
+    true_state[0]
+    - target_x
+)
+
+final_y_docking_error = (
+    true_state[1]
+)
+
+final_planar_docking_error = np.sqrt(
+    final_x_docking_error**2
+    +
+    final_y_docking_error**2
+)
+
 
 # ==================================================
 # PRINT
@@ -1069,6 +1145,29 @@ print(
     "degrees"
 )
 
+print()
+
+print("Final X docking error:")
+print(
+    final_x_docking_error,
+    "m"
+)
+
+print()
+
+print("Final Y docking error:")
+print(
+    final_y_docking_error,
+    "m"
+)
+
+print()
+
+print("Final planar docking error:")
+print(
+    final_planar_docking_error,
+    "m"
+)
 
 # ==================================================
 # PLOTS
@@ -1112,7 +1211,7 @@ plt.ylabel(
 )
 
 plt.title(
-    "Full MuJoCo EKF + LQR Docking"
+    "Full MuJoCo EKF + LQR + Pose-Control Docking"
 )
 
 plt.axis(
