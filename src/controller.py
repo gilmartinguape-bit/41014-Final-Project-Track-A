@@ -171,3 +171,134 @@ def docking_forward_speed(
 
 
     return max_speed
+
+
+def docking_pose_control(
+    estimated_state,
+    target_pose,
+    max_linear_speed=0.12,
+    max_angular_speed=1.0,
+    k_rho=0.8,
+    k_alpha=2.0,
+    k_beta=-0.6,
+    position_tolerance=0.025,
+    heading_tolerance=np.deg2rad(3.0)
+):
+    """
+    Final pose controller for differential-drive docking.
+
+    Controls both position and orientation using
+    the EKF-estimated robot pose.
+    """
+
+    x = estimated_state[0]
+    y = estimated_state[1]
+    theta = estimated_state[2]
+
+    target_x = target_pose[0]
+    target_y = target_pose[1]
+    target_theta = target_pose[2]
+
+
+    dx = target_x - x
+    dy = target_y - y
+
+
+    rho = np.sqrt(
+        dx**2 + dy**2
+    )
+
+
+    # Direction from robot to docking target.
+    target_bearing = np.arctan2(
+        dy,
+        dx
+    )
+
+
+    alpha = wrap_angle(
+        target_bearing - theta
+    )
+
+
+    beta = wrap_angle(
+        target_theta
+        - theta
+        - alpha
+    )
+
+
+    # ==============================================
+    # POSITION NOT YET REACHED
+    # ==============================================
+
+    if rho > position_tolerance:
+
+        v = (
+            k_rho
+            * rho
+        )
+
+        omega = (
+            k_alpha
+            * alpha
+            +
+            k_beta
+            * beta
+        )
+
+
+        v = np.clip(
+            v,
+            0.0,
+            max_linear_speed
+        )
+
+
+        omega = np.clip(
+            omega,
+            -max_angular_speed,
+            max_angular_speed
+        )
+
+
+    # ==============================================
+    # POSITION REACHED — ALIGN HEADING
+    # ==============================================
+
+    else:
+
+        v = 0.0
+
+        heading_error = wrap_angle(
+            target_theta
+            - theta
+        )
+
+
+        if (
+            abs(heading_error)
+            > heading_tolerance
+        ):
+
+            omega = np.clip(
+                1.5 * heading_error,
+                -max_angular_speed,
+                max_angular_speed
+            )
+
+        else:
+
+            omega = 0.0
+
+
+    return (
+        np.array([
+            v,
+            omega
+        ]),
+        rho,
+        wrap_angle(
+            target_theta - theta
+        )
+    )

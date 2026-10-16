@@ -1,0 +1,255 @@
+<mujoco model="simple_turtlebot">
+
+    <option timestep="0.01" gravity="0 0 -9.81"/>
+
+    <worldbody>
+
+        <light
+            pos="0 0 4"
+            dir="0 0 -1"
+        />
+
+        <geom
+            name="floor"
+            type="plane"
+            size="3 3 0.1"
+            rgba="0.8 0.8 0.8 1"
+        />
+
+        <geom
+            name="north_wall"
+            type="box"
+            pos="0 2.0 0.25"
+            size="2.0 0.05 0.25"
+            rgba="0.4 0.4 0.4 1"
+        />
+
+        <geom
+            name="south_wall"
+            type="box"
+            pos="0 -2.0 0.25"
+            size="2.0 0.05 0.25"
+            rgba="0.4 0.4 0.4 1"
+        />
+
+        <geom
+            name="east_wall"
+            type="box"
+            pos="2.0 0 0.25"
+            size="0.05 2.0 0.25"
+            rgba="0.4 0.4 0.4 1"
+        />
+
+        <geom
+            name="west_wall"
+            type="box"
+            pos="-2.0 0 0.25"
+            size="0.05 2.0 0.25"
+            rgba="0.4 0.4 0.4 1"
+        />
+
+        <geom
+            name="obstacle_1"
+            type="box"
+            pos="0.4 1.2 0.20"
+            size="0.20 0.20 0.20"
+            rgba="0.7 0.2 0.2 1"
+        />
+
+        <geom
+            name="obstacle_2"
+            type="box"
+            pos="-0.6 1.2 0.20"
+            size="0.25 0.18 0.20"
+            rgba="0.7 0.2 0.2 1"
+        />
+
+        <geom
+            name="docking_panel"
+            type="box"
+            pos="1.80 0 0.35"
+            size="0.03 0.30 0.35"
+            rgba="1 1 1 1"
+        />
+
+        <geom
+            name="aruco_background"
+            type="box"
+            pos="1.765 0 0.35"
+            size="0.005 0.15 0.15"
+            rgba="0 0 0 1"
+        />
+
+        <!-- Row 1 -->
+        <geom 
+            name="aruco_w_11" 
+            type="box"
+            pos="1.755 0.075 0.425"
+            size="0.004 0.025 0.025"
+            rgba="1 1 1 1"
+        />
+
+        <geom 
+            name="aruco_w_13" 
+            type="box"
+            pos="1.755 -0.025 0.425"
+            size="0.004 0.025 0.025"
+            rgba="1 1 1 1"
+        />
+
+        <geom 
+            name="aruco_w_14" 
+            type="box"
+            pos="1.755 -0.075 0.425"
+            size="0.004 0.025 0.025"
+            rgba="1 1 1 1"/>
+
+
+        <!-- Row 2 -->
+        <geom 
+            name="aruco_w_22" 
+            type="box"
+            pos="1.755 0.025 0.375"
+            size="0.004 0.025 0.025"
+            rgba="1 1 1 1"
+        />
+
+        <geom 
+            name="aruco_w_24" 
+            type="box"
+            pos="1.755 -0.075 0.375"
+            size="0.004 0.025 0.025"
+            rgba="1 1 1 1"
+        />
+
+
+        <!-- Row 3 -->
+        <geom 
+            name="aruco_w_33" 
+            type="box"
+            pos="1.755 -0.025 0.325"
+            size="0.004 0.025 0.025"
+            rgba="1 1 1 1"
+        />
+
+        <geom 
+            name="aruco_w_34" 
+            type="box"
+            pos="1.755 -0.075 0.325"
+            size="0.004 0.025 0.025"
+            rgba="1 1 1 1"
+        />
+
+
+        <!-- Row 4 -->
+        <geom 
+            name="aruco_w_43" 
+            type="box"
+            pos="1.755 -0.025 0.275"
+            size="0.004 0.025 0.025"
+            rgba="1 1 1 1"
+        />
+
+        <body
+            name="robot"
+            pos="0 0 0"
+        >
+
+            <joint
+                name="robot_x"
+                type="slide"
+                axis="1 0 0"
+            />
+
+            <joint
+                name="robot_y"
+                type="slide"
+                axis="0 1 0"
+            />
+
+            <joint
+                name="robot_yaw"
+                type="hinge"
+                axis="0 0 1"
+            />
+
+            <geom
+                name="base"
+                type="cylinder"
+                size="0.105 0.055"
+                pos="0 0 0.055"
+                mass="0.8"
+                contype="0"
+                conaffinity="0"
+                rgba="0.1 0.3 0.8 1"
+            />
+
+            <site
+                name="lidar_site"
+                pos="0 0 0.16"
+                size="0.01"
+                rgba="0 1 0 1"
+            />
+
+            <camera
+                name="front_camera"
+                pos="0.09 0 0.14"
+                xyaxes="0 -1 0 0 0 1"
+                fovy="90"
+            />
+
+
+            <body
+                name="left_wheel_body"
+                pos="0 0.080 0.035"
+            >
+
+                <joint
+                    name="left_wheel_joint"
+                    type="hinge"
+                    axis="0 1 0"
+                />
+
+                <geom
+                    name="left_wheel"
+                    type="cylinder"
+                    size="0.033 0.012"
+                    euler="1.5708 0 0"
+                    mass="0.05"
+                    contype="0"
+                    conaffinity="0"
+                    rgba="0.05 0.05 0.05 1"
+                />
+            
+            </body>
+
+            
+            <body
+                name="right_wheel_body"
+                pos="0 -0.080 0.035"
+            >
+
+                <joint
+                    name="right_wheel_joint"
+                    type="hinge"
+                    axis="0 1 0"
+                />
+
+                <geom
+                    name="right_wheel"
+                    type="cylinder"
+                    size="0.033 0.012"
+                    euler="1.5708 0 0"
+                    mass="0.05"
+                    contype="0"
+                    conaffinity="0"
+                    rgba="0.05 0.05 0.05 1"
+                />
+
+            </body>
+
+        </body>
+
+    </worldbody>
+    
+</mujoco>
