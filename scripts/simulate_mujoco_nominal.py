@@ -1,3 +1,5 @@
+import csv
+
 import time
 
 from pathlib import Path
@@ -40,6 +42,19 @@ from src.utils import wrap_angle
 # ==================================================
 
 project_root = Path(__file__).resolve().parents[1]
+
+scenario_name = "nominal"
+
+results_dir = (
+    project_root
+    / "results"
+    / scenario_name
+)
+
+results_dir.mkdir(
+    parents=True,
+    exist_ok=True
+)
 
 xml_path = (
     project_root
@@ -1080,6 +1095,32 @@ final_planar_docking_error = np.sqrt(
     +
     final_y_docking_error**2
 )
+
+metrics = {
+    "scenario": scenario_name,
+    "camera_updates": camera_update_count,
+    "final_true_x_m": true_state[0],
+    "final_true_y_m": true_state[1],
+    "final_true_heading_deg": np.degrees(
+        final_true_heading_error
+    ),
+    "final_ekf_x_m": ekf.state[0],
+    "final_ekf_y_m": ekf.state[1],
+    "final_ekf_heading_deg": np.degrees(
+        ekf.state[2]
+    ),
+    "final_localisation_error_m": final_position_error,
+    "position_rmse_m": position_rmse,
+    "true_lateral_rmse_m": true_lateral_rmse,
+    "true_heading_rmse_deg": np.degrees(
+        true_heading_rmse
+    ),
+    "final_x_docking_error_m": final_x_docking_error,
+    "final_y_docking_error_m": final_y_docking_error,
+    "final_planar_docking_error_m": (
+        final_planar_docking_error
+    ),
+}
 
 
 # ==================================================

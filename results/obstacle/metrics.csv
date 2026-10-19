@@ -1,0 +1,17 @@
+metric,value
+scenario,obstacle
+camera_updates,44
+final_true_x_m,1.1933276546300184
+final_true_y_m,-0.007942099629555124
+final_true_heading_deg,2.596896027023908
+final_ekf_x_m,1.1859164307445376
+final_ekf_y_m,-0.006950248749964856
+final_ekf_heading_deg,2.709468322743522
+final_localisation_error_m,0.00747729948899108
+position_rmse_m,0.055902108858631595
+true_lateral_rmse_m,0.14149437533055328
+true_heading_rmse_deg,25.659038449820077
+final_x_docking_error_m,-0.006672345369981514
+final_y_docking_error_m,-0.007942099629555124
+final_planar_docking_error_m,0.01037290409008458
+obstacle_avoidance,successful
