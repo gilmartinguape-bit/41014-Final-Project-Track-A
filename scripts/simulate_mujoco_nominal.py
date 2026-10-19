@@ -28,7 +28,6 @@ from src.controller import docking_forward_speed
 from src.controller import docking_pose_control
 
 from src.lidar import cast_lidar_ray
-from src.lidar import lidar_safety_state_machine
 
 from src.vision import (
     aruco_measurement_to_robot_pose
@@ -256,6 +255,179 @@ dist_coeffs = np.zeros(
     (5, 1)
 )
 
+# ==================================================
+# VIDEO RECORDING
+# ==================================================
+
+video_width = 640
+video_height = 480
+
+video_renderer = mujoco.Renderer(
+    model,
+    height=video_height,
+    width=video_width
+)
+
+video_path = (
+    results_dir
+    / "simulation.mp4"
+)
+
+video_fps = int(
+    round(
+        1.0 / DT
+    )
+)
+
+fourcc = cv2.VideoWriter_fourcc(
+    *"mp4v"
+)
+
+video_writer = cv2.VideoWriter(
+    str(video_path),
+    fourcc,
+    video_fps,
+    (
+        video_width,
+        video_height
+    )
+)
+
+if not video_writer.isOpened():
+    raise RuntimeError(
+        f"Could not open overview video writer for {video_path}"
+    )
+
+# ==================================================
+# ROBOT FRONT-CAMERA VIDEO
+# ==================================================
+
+robot_camera_video_path = (
+    results_dir
+    / "robot_camera.mp4"
+)
+
+robot_camera_writer = cv2.VideoWriter(
+    str(robot_camera_video_path),
+    fourcc,
+    video_fps,
+    (
+        image_width,
+        image_height
+    )
+)
+
+if not robot_camera_writer.isOpened():
+    raise RuntimeError(
+        f"Could not open robot-camera video writer for "
+        f"{robot_camera_video_path}"
+    )
+
+robot_camera_renderer = mujoco.Renderer(
+    model,
+    height=image_height,
+    width=image_width
+)
+
+# ==================================================
+# BIRD'S-EYE PERSPECTIVE VIDEO
+# ==================================================
+
+birdseye_video_path = (
+    results_dir
+    / "birdseye_perspective.mp4"
+)
+
+birdseye_writer = cv2.VideoWriter(
+    str(birdseye_video_path),
+    fourcc,
+    video_fps,
+    (
+        video_width,
+        video_height
+    )
+)
+
+if not birdseye_writer.isOpened():
+    raise RuntimeError(
+        f"Could not open bird's-eye video writer for "
+        f"{birdseye_video_path}"
+    )
+
+
+# ==================================================
+# TOP-VIEW VIDEO
+# ==================================================
+
+top_view_video_path = (
+    results_dir
+    / "top_view.mp4"
+)
+
+top_view_writer = cv2.VideoWriter(
+    str(top_view_video_path),
+    fourcc,
+    video_fps,
+    (
+        video_width,
+        video_height
+    )
+)
+
+if not top_view_writer.isOpened():
+    raise RuntimeError(
+        f"Could not open top-view video writer for "
+        f"{top_view_video_path}"
+    )
+
+birdseye_renderer = mujoco.Renderer(
+    model,
+    height=video_height,
+    width=video_width
+)
+
+top_view_renderer = mujoco.Renderer(
+    model,
+    height=video_height,
+    width=video_width
+)
+
+# ==================================================
+# FOUR-VIEW GRID VIDEO
+# ==================================================
+
+grid_video_path = (
+    results_dir
+    / "four_view_grid.mp4"
+)
+
+status_bar_height = 100
+
+grid_width = (
+    video_width * 2
+)
+
+grid_height = (
+    video_height * 2
+    + status_bar_height
+)
+
+grid_writer = cv2.VideoWriter(
+    str(grid_video_path),
+    fourcc,
+    video_fps,
+    (
+        grid_width,
+        grid_height
+    )
+)
+
+if not grid_writer.isOpened():
+    raise RuntimeError(
+        f"Could not open four-view grid video writer for "
+        f"{grid_video_path}"
+    )
+
 
 # ==================================================
 # ARUCO
@@ -337,6 +509,68 @@ number_of_steps = int(
 )
 
 # ==================================================
+# OVERVIEW CAMERA
+# ==================================================
+
+overview_camera = mujoco.MjvCamera()
+
+overview_camera.type = (
+    mujoco.mjtCamera.mjCAMERA_FREE
+)
+
+overview_camera.lookat[:] = [
+    0.65,
+    0.0,
+    0.0
+]
+
+overview_camera.distance = 2.7
+overview_camera.azimuth = 90
+overview_camera.elevation = -55
+
+
+# ==================================================
+# BIRD'S-EYE PERSPECTIVE CAMERA
+# ==================================================
+
+birdseye_camera = mujoco.MjvCamera()
+
+birdseye_camera.type = (
+    mujoco.mjtCamera.mjCAMERA_FREE
+)
+
+birdseye_camera.lookat[:] = [
+    0.70,
+    0.05,
+    0.0
+]
+
+birdseye_camera.distance = 3.0
+birdseye_camera.azimuth = 135
+birdseye_camera.elevation = -65
+
+
+# ==================================================
+# TOP-DOWN CAMERA
+# ==================================================
+
+top_view_camera = mujoco.MjvCamera()
+
+top_view_camera.type = (
+    mujoco.mjtCamera.mjCAMERA_FREE
+)
+
+top_view_camera.lookat[:] = [
+    0.70,
+    0.05,
+    0.0
+]
+
+top_view_camera.distance = 3.0
+top_view_camera.azimuth = 90
+top_view_camera.elevation = -89.0
+
+# ==================================================
 # VIEWER PLAYBACK SETTINGS
 # ==================================================
 
@@ -382,6 +616,8 @@ camera_update_count = 0
 
 last_detection_image = None
 
+aruco_visible = False
+
 controller_mode_history = []
 
 
@@ -406,6 +642,67 @@ minimum_avoidance_steps = int(
     0.75 / DT
 )
 
+def add_video_label(
+    frame,
+    text
+):
+
+    labelled_frame = frame.copy()
+
+    font = cv2.FONT_HERSHEY_SIMPLEX
+    font_scale = 0.75
+    thickness = 2
+
+    text_size, baseline = cv2.getTextSize(
+        text,
+        font,
+        font_scale,
+        thickness
+    )
+
+    text_width = text_size[0]
+    text_height = text_size[1]
+
+    x = 15
+    y = 35
+
+    cv2.rectangle(
+        labelled_frame,
+        (
+            x - 8,
+            y - text_height - 8
+        ),
+        (
+            x + text_width + 8,
+            y + baseline + 8
+        ),
+        (
+            0,
+            0,
+            0
+        ),
+        -1
+    )
+
+    cv2.putText(
+        labelled_frame,
+        text,
+        (
+            x,
+            y
+        ),
+        font,
+        font_scale,
+        (
+            255,
+            255,
+            255
+        ),
+        thickness,
+        cv2.LINE_AA
+    )
+
+    return labelled_frame
 
 # ==================================================
 # VIEWER
@@ -455,6 +752,94 @@ with mujoco.viewer.launch_passive(
         mujoco.mj_forward(
             model,
             data
+        )
+
+        # ==============================================
+        # OVERVIEW
+        # ==============================================
+        
+        video_renderer.update_scene(
+            data,
+            camera=overview_camera
+        )
+
+        video_frame_rgb = (
+            video_renderer.render()
+        )
+
+        video_frame_bgr = cv2.cvtColor(
+            video_frame_rgb,
+            cv2.COLOR_RGB2BGR
+        )
+
+        video_writer.write(
+            video_frame_bgr
+        )
+
+        # ==============================================
+        # ROBOT CAMERA
+        # ==============================================
+
+        robot_camera_renderer.update_scene(
+            data,
+            camera="front_camera"
+        )
+
+        robot_camera_frame_rgb = (
+            robot_camera_renderer.render()
+        )
+
+        robot_camera_frame_bgr = cv2.cvtColor(
+            robot_camera_frame_rgb,
+            cv2.COLOR_RGB2BGR
+        )
+
+        robot_camera_writer.write(
+            robot_camera_frame_bgr
+        )
+
+        # ==============================================
+        # BIRD'S EYE VIEW
+        # ==============================================
+
+        birdseye_renderer.update_scene(
+            data,
+            camera=birdseye_camera
+        )
+
+        birdseye_frame_rgb = (
+            birdseye_renderer.render()
+        )
+
+        birdseye_frame_bgr = cv2.cvtColor(
+            birdseye_frame_rgb,
+            cv2.COLOR_RGB2BGR
+        )
+
+        birdseye_writer.write(
+            birdseye_frame_bgr
+        )
+
+        # ==============================================
+        # TOP VIEW
+        # ==============================================
+
+        top_view_renderer.update_scene(
+            data,
+            camera=top_view_camera
+        )
+
+        top_view_frame_rgb = (
+            top_view_renderer.render()
+        )
+
+        top_view_frame_bgr = cv2.cvtColor(
+            top_view_frame_rgb,
+            cv2.COLOR_RGB2BGR
+        )
+
+        top_view_writer.write(
+            top_view_frame_bgr
         )
 
 
@@ -525,8 +910,10 @@ with mujoco.viewer.launch_passive(
 
         camera_updated = False
 
-
+        
         if step % camera_interval_steps == 0:
+
+            aruco_visible = False
 
             renderer.update_scene(
                 data,
@@ -573,6 +960,8 @@ with mujoco.viewer.launch_passive(
 
 
                 if marker_index is not None:
+
+                    aruco_visible = True
 
                     image_points = corners[
                         marker_index
@@ -696,7 +1085,6 @@ with mujoco.viewer.launch_passive(
 
             controller_mode = "LQR_APPROACH"
 
-
         else:
 
             # ------------------------------------------
@@ -789,47 +1177,14 @@ with mujoco.viewer.launch_passive(
 
 
         # ==============================================
-        # 9. LIDAR SAFETY OVERRIDE
+        # 9. NOMINAL CONTROL COMMAND
         # ==============================================
 
-        (
-            control_command,
-            avoidance_mode,
-            avoidance_turn_direction,
-            recovery_steps_remaining,
-            avoidance_steps_remaining
-        ) = lidar_safety_state_machine(
-            nominal_control_command[0],
-            nominal_control_command[1],
-            left_distance,
-            front_distance,
-            right_distance,
-            avoidance_mode,
-            avoidance_turn_direction,
-            recovery_steps_remaining,
-            avoidance_steps_remaining,
-            slow_obstacle_distance,
-            avoidance_enter_distance,
-            avoidance_exit_distance,
-            avoidance_turn_rate,
-            recovery_speed,
-            recovery_steps,
-            minimum_avoidance_steps
+        control_command = (
+            nominal_control_command
         )
 
-
-        if avoidance_mode != previous_avoidance_mode:
-
-            print(
-                f"AVOIDANCE MODE: "
-                f"{previous_avoidance_mode}"
-                f" -> "
-                f"{avoidance_mode}"
-        )
-
-        previous_avoidance_mode = (
-            avoidance_mode
-        )
+        avoidance_mode = "NOT_APPLICABLE"
 
 
         # ==============================================
@@ -955,6 +1310,122 @@ with mujoco.viewer.launch_passive(
 
         controller_mode_history.append(
             controller_mode
+        )
+
+        overview_grid_frame = add_video_label(
+            video_frame_bgr,
+            "OVERVIEW"
+        )
+
+        robot_grid_frame = add_video_label(
+            robot_camera_frame_bgr,
+            "ROBOT CAMERA"
+        )
+
+        birdseye_grid_frame = add_video_label(
+            birdseye_frame_bgr,
+            "BIRD'S-EYE PERSPECTIVE"
+        )
+
+        top_grid_frame = add_video_label(
+            top_view_frame_bgr,
+            "TOP VIEW"
+        )
+
+        top_row = cv2.hconcat([
+            overview_grid_frame,
+            robot_grid_frame
+        ])
+
+        bottom_row = cv2.hconcat([
+            birdseye_grid_frame,
+            top_grid_frame
+        ])
+
+        views_grid = cv2.vconcat([
+            top_row,
+            bottom_row
+        ])
+
+        status_bar = np.zeros(
+            (
+                status_bar_height,
+                grid_width,
+                3
+            ),
+            dtype=np.uint8
+        )
+
+        display_time = (
+            step + 1
+        ) * DT
+
+        aruco_visible_text = (
+            "YES"
+            if aruco_visible
+            else "NO"
+        )
+
+        ekf_update_text = (
+            "YES"
+            if camera_updated
+            else "NO"
+        )
+
+        status_line_1 = (
+            f"Time: {display_time:5.2f} s"
+            f"    |    Controller: {controller_mode}"
+            f"    |    Scenario: NOMINAL"
+        )
+
+        status_line_2 = (
+            f"ArUco Visible: {aruco_visible_text}"
+            f"    |    EKF Visual Update: {ekf_update_text}"
+        )
+
+        cv2.putText(
+            status_bar,
+            status_line_1,
+            (
+                20,
+                38
+            ),
+            cv2.FONT_HERSHEY_SIMPLEX,
+            0.70,
+            (
+                255,
+                255,
+                255
+            ),
+            2,
+            cv2.LINE_AA
+        )
+
+        cv2.putText(
+            status_bar,
+            status_line_2,
+            (
+                20,
+                78
+            ),
+            cv2.FONT_HERSHEY_SIMPLEX,
+            0.70,
+            (
+                255,
+                255,
+                255
+            ),
+            2,
+            cv2.LINE_AA
+        )
+
+        grid_frame = cv2.vconcat([
+            status_bar,
+            views_grid
+        ])
+
+        grid_writer.write(
+            grid_frame
         )
 
 
@@ -1121,6 +1592,81 @@ metrics = {
         final_planar_docking_error
     ),
 }
+
+metrics["obstacle_avoidance"] = (
+    "not_applicable"
+)
+
+# ==================================================
+# SAVE METRICS CSV
+# ==================================================
+
+metrics_path = (
+    results_dir
+    / "metrics.csv"
+)
+
+with open(
+    metrics_path,
+    "w",
+    newline=""
+) as csvfile:
+
+    writer = csv.writer(
+        csvfile
+    )
+
+    writer.writerow([
+        "metric",
+        "value"
+    ])
+
+    for key, value in metrics.items():
+
+        writer.writerow([
+            key,
+            value
+        ])
+
+print()
+
+print(
+    f"Saved metrics to: "
+    f"{metrics_path}"
+)
+
+video_writer.release()
+robot_camera_writer.release()
+birdseye_writer.release()
+top_view_writer.release()
+grid_writer.release()
+
+print()
+
+print(
+    f"Saved overview video to: "
+    f"{video_path}"
+)
+
+print(
+    f"Saved robot-camera video to: "
+    f"{robot_camera_video_path}"
+)
+
+print(
+    f"Saved bird's-eye video to: "
+    f"{birdseye_video_path}"
+)
+
+print(
+    f"Saved top-view video to: "
+    f"{top_view_video_path}"
+)
+
+print(
+    f"Saved four-view grid video to: "
+    f"{grid_video_path}"
+)
 
 
 # ==================================================
@@ -1468,5 +2014,54 @@ if last_detection_image is not None:
         "off"
     )
 
+# ==================================================
+# SAVE FIGURES
+# ==================================================
+
+figure_names = [
+    "trajectory",
+    "lateral_error",
+    "heading_error",
+    "control_commands",
+    "lidar_clearance",
+    "aruco_updates"
+]
+
+if last_detection_image is not None:
+
+    figure_names.append(
+        "latest_aruco_detection"
+    )
+
+figure_numbers = (
+    plt.get_fignums()
+)
+
+for figure_number, figure_name in zip(
+    figure_numbers,
+    figure_names
+):
+
+    figure = plt.figure(
+        figure_number
+    )
+
+    output_path = (
+        results_dir
+        / f"{figure_name}.png"
+    )
+
+    figure.savefig(
+        output_path,
+        dpi=300,
+        bbox_inches="tight"
+    )
+
+print()
+
+print(
+    f"Saved figures to: "
+    f"{results_dir}"
+)
 
 plt.show()

@@ -1,0 +1,17 @@
+metric,value
+scenario,nominal
+camera_updates,80
+final_true_x_m,1.190380463473148
+final_true_y_m,0.005707279864764493
+final_true_heading_deg,-2.3392086189115706
+final_ekf_x_m,1.1799416688451787
+final_ekf_y_m,0.0015488743912743551
+final_ekf_heading_deg,-2.0279310341267545
+final_localisation_error_m,0.011236581747438808
+position_rmse_m,0.030686482573626963
+true_lateral_rmse_m,0.08806084686226334
+true_heading_rmse_deg,9.447842019474283
+final_x_docking_error_m,-0.00961953652685188
+final_y_docking_error_m,0.005707279864764493
+final_planar_docking_error_m,0.011185192284721068
+obstacle_avoidance,not_applicable
