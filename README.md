@@ -1,515 +1,546 @@
-# 41014 Sensors and Control in Mechatronic Systems
-## Integrated Project — Mobile Robot Visual Docking with EKF, LQR, LiDAR and ArUco
+# 41014 Integrated Project — Mobile Robot Visual Docking
 
-This repository contains the current working simulation for the **41014 Sensors and Control in Mechatronic Systems Integrated Project** at the University of Technology Sydney (UTS).
+**Subject:** 41014 Sensors and Control for Mechatronic Systems  
+**Track:** Track A — Mobile robot visual waypoint navigation / visual docking  
+**Platform:** MuJoCo differential-drive mobile robot  
+**Core pipeline:** Wheel encoders + camera/ArUco → EKF → LQR / final pose controller  
+**Robustness extension:** LiDAR safety override for obstacle avoidance
 
-The project follows **Track A: Mobile Robot — Visual Waypoint Navigation**. A TurtleBot3-like differential-drive mobile robot is simulated in **MuJoCo** with wheel encoders, 2D LiDAR and a forward RGB camera. The robot estimates its pose using an **Extended Kalman Filter (EKF)**, follows the docking path using **LQR/state-feedback control**, avoids an obstacle using a **LiDAR safety layer**, and performs final docking near an **ArUco-marked charging station**.
+## Project overview
 
-The controller uses the **estimated state only**. Ground-truth state is retained only for simulation, sensor generation and performance evaluation.
+This project implements an end-to-end sensing, estimation and control pipeline for a differential-drive mobile robot in MuJoCo. The robot starts with lateral and heading error, estimates its pose from noisy wheel encoders and intermittent ArUco-camera measurements, and docks at a target pose.
+
+The controller uses the **EKF estimated state only**. MuJoCo ground truth is used only to calculate evaluation metrics.
+
+Two scenarios are evaluated:
+
+- **Nominal docking:** visual docking without an obstacle.
+- **Obstacle docking:** the same estimator and controller, with a LiDAR safety state machine that can temporarily override the nominal command.
+
+The docking target is
+
+\[
+\mathbf{x}_d =
+\begin{bmatrix}
+1.20 & 0 & 0
+\end{bmatrix}^{T}
+\]
+
+for \(x=1.20\text{ m}\), \(y=0\text{ m}\), and \(\theta=0^\circ\).
 
 ---
 
-## 1. Current Project Status
+## 1. System architecture
 
-The complete simulation pipeline is working end-to-end in two final scenarios:
+```mermaid
+flowchart LR
+    A[Wheel Encoders] --> B[EKF Prediction]
+    C[Front Camera + ArUco] --> D[Visual Pose]
+    D --> E[EKF Update]
+    B --> E
+    E --> F[Estimated Pose x_hat, y_hat, theta_hat]
+    F --> G[LQR Approach Controller]
+    F --> H[Final Pose Controller]
+    I[LiDAR] --> J[Safety Override]
+    G --> J
+    H --> J
+    J --> K[v, omega]
+    K --> L[Differential-Drive Robot / MuJoCo]
+    L --> A
+    L --> C
+    L --> I
+    L -. Ground truth only for evaluation .-> M[Metrics and Plots]
+```
 
-- **Nominal scenario:** unobstructed approach and visual docking.
-- **Obstacle scenario:** approach, LiDAR-triggered avoidance, recovery, ArUco reacquisition and final docking.
+### Coordinate frames
 
-Both scenarios generate quantitative metrics, trajectory histories, plots and synchronized demonstration videos.
+The main frames are:
 
-### Current verified final results
+- **World frame \(\{W\}\):** fixed MuJoCo map frame.
+- **Robot/body frame \(\{B\}\):** attached to the differential-drive robot.
+- **Camera frame \(\{C\}\):** attached to the front camera.
+- **ArUco marker frame \(\{M\}\):** fixed at the docking station.
+
+The camera detects the known marker and estimates marker-to-camera pose. This is transformed into a robot pose in the world frame before the EKF measurement update.
+
+---
+
+## 2. Robot model
+
+The robot state and control input are
+
+\[
+\mathbf{x}=
+\begin{bmatrix}
+x & y & \theta
+\end{bmatrix}^{T},
+\qquad
+\mathbf{u}=
+\begin{bmatrix}
+v & \omega
+\end{bmatrix}^{T}.
+\]
+
+The unicycle kinematic model is
+
+\[
+\dot{x}=v\cos\theta,\qquad
+\dot{y}=v\sin\theta,\qquad
+\dot{\theta}=\omega.
+\]
+
+For a differential-drive robot with wheel radius \(r\), wheelbase \(L\), and wheel angular velocities \(\omega_R,\omega_L\),
+
+\[
+v=\frac{r}{2}(\omega_R+\omega_L),
+\qquad
+\omega=\frac{r}{L}(\omega_R-\omega_L).
+\]
+
+### Model parameters
+
+| Parameter | Value |
+|---|---:|
+| Simulation time step, \(\Delta t\) | 0.05 s |
+| Wheel radius, \(r\) | 0.033 m |
+| Wheelbase, \(L\) | 0.16 m |
+| Maximum forward speed | 0.18 m/s |
+| Simulation duration | 20 s |
+
+### Controllability used for LQR approach
+
+The LQR approach controller uses the small-error states
+
+\[
+\mathbf{e}=
+\begin{bmatrix}
+e_y & e_\theta
+\end{bmatrix}^{T}.
+\]
+
+For approximately constant forward speed \(v\),
+
+\[
+\dot{\mathbf{e}}
+=
+\begin{bmatrix}
+0 & v\\
+0 & 0
+\end{bmatrix}\mathbf{e}
++
+\begin{bmatrix}
+0\\
+1
+\end{bmatrix}\omega.
+\]
+
+The controllability matrix is
+
+\[
+\mathcal{C}=[B\ AB]
+=
+\begin{bmatrix}
+0 & v\\
+1 & 0
+\end{bmatrix}.
+\]
+
+For \(v\neq0\), \(\operatorname{rank}(\mathcal C)=2\), so the lateral-heading error model is controllable.
+
+---
+
+## 3. Sensing
+
+### Wheel encoders
+
+Wheel angular velocity is deliberately corrupted to prevent unrealistically perfect odometry:
+
+\[
+\omega_m=\omega_{\text{true}}+b+\eta,
+\qquad
+\eta\sim\mathcal N(0,\sigma^2).
+\]
+
+| Encoder parameter | Value |
+|---|---:|
+| Noise standard deviation | 0.15 rad/s |
+| Left-wheel bias | 0.00 rad/s |
+| Right-wheel bias | 0.02 rad/s |
+
+This causes odometry drift and gives the EKF a meaningful estimation problem.
+
+### Camera and ArUco marker
+
+The front camera detects ArUco marker ID 0. OpenCV `solvePnP` estimates the marker pose using the detected corners, marker geometry, camera matrix and zero simulated distortion.
+
+| Camera parameter | Value |
+|---|---:|
+| Image size | 640 × 480 |
+| Field of view | 90° |
+| ArUco marker side length | 0.30 m |
+| Camera update interval | every 5 simulation steps |
+| Pose noise in \(x\) | 0.01 m |
+| Pose noise in \(y\) | 0.01 m |
+| Pose noise in heading | 1° |
+
+### LiDAR
+
+The obstacle scenario adds left, front and right range rays. LiDAR does not replace the nominal controller; it is used as a supervisory safety layer.
+
+| LiDAR / avoidance parameter | Value |
+|---|---:|
+| Maximum range | 3.5 m |
+| Slow-obstacle distance | 0.65 m |
+| Avoidance-entry distance | 0.30 m |
+| Avoidance-exit distance | 0.60 m |
+| Avoidance turn rate | 0.8 rad/s |
+| Recovery speed | 0.10 m/s |
+
+---
+
+## 4. State estimator — Extended Kalman Filter
+
+The EKF fuses noisy encoder motion with intermittent camera pose measurements.
+
+### Prediction
+
+\[
+\hat{\mathbf{x}}_{k+1}^{-}
+=
+f(\hat{\mathbf{x}}_k,\mathbf{u}_k)
+\]
+
+with
+
+\[
+f(\mathbf{x},\mathbf{u})=
+\begin{bmatrix}
+x+v\cos\theta\,\Delta t\\
+y+v\sin\theta\,\Delta t\\
+\theta+\omega\Delta t
+\end{bmatrix}.
+\]
+
+The state Jacobian is
+
+\[
+F_k=
+\begin{bmatrix}
+1 & 0 & -v\sin\theta\,\Delta t\\
+0 & 1 &  v\cos\theta\,\Delta t\\
+0 & 0 & 1
+\end{bmatrix},
+\]
+
+and covariance prediction is
+
+\[
+P_{k+1}^{-}=F_kP_kF_k^T+Q.
+\]
+
+Current process covariance:
+
+\[
+Q=
+\operatorname{diag}
+\left(
+0.002^2,\;
+0.002^2,\;
+(0.5^\circ)^2
+\right).
+\]
+
+### Camera update
+
+The camera supplies a pose measurement
+
+\[
+\mathbf{z}=
+\begin{bmatrix}
+x_c & y_c & \theta_c
+\end{bmatrix}^{T}
+\]
+
+with direct pose measurement model \(H=I\).
+
+\[
+K=P^-H^T(HP^-H^T+R)^{-1}
+\]
+
+\[
+\hat{\mathbf{x}}
+=
+\hat{\mathbf{x}}^-+
+K(\mathbf{z}-H\hat{\mathbf{x}}^-).
+\]
+
+The measurement covariance is
+
+\[
+R=
+\operatorname{diag}
+\left(
+0.01^2,\;
+0.01^2,\;
+(1^\circ)^2
+\right).
+\]
+
+Because \(H=I\) when the marker is visible, all three pose states are directly observed by the visual pose update. When the marker is not visible, the EKF continues encoder-based prediction and uncertainty grows until visual correction becomes available again.
+
+---
+
+## 5. Controller design
+
+The controller uses the EKF estimate
+
+\[
+\hat{\mathbf{x}}=
+[\hat{x},\hat{y},\hat{\theta}]^T
+\]
+
+and never the simulator ground truth.
+
+### Phase 1 — LQR approach
+
+Before the final docking region, LQR corrects lateral and heading error.
+
+\[
+J=
+\int
+\left(
+\mathbf{e}^TQ_c\mathbf{e}
++
+\omega^TR_c\omega
+\right)dt
+\]
+
+with
+
+\[
+Q_c=
+\begin{bmatrix}
+8&0\\
+0&4
+\end{bmatrix},
+\qquad
+R_c=[1.2].
+\]
+
+The steering law is
+
+\[
+\omega=-K\mathbf{e}.
+\]
+
+| LQR parameter | Value |
+|---|---:|
+| \(q_y\) | 8.0 |
+| \(q_\theta\) | 4.0 |
+| \(r_\omega\) | 1.2 |
+| Angular-rate limit | 1.5 rad/s |
+| Maximum forward speed | 0.18 m/s |
+
+The larger lateral-error weight makes centreline convergence the main objective while \(R_c\) prevents unnecessarily aggressive steering.
+
+### Phase 2 — final pose docking
+
+At approximately
+
+\[
+\hat{x}\ge0.95\text{ m},
+\]
+
+the controller switches to a final pose controller. It regulates remaining position and heading error and slows the robot near the target.
+
+| Docking parameter | Value |
+|---|---:|
+| Final docking start \(x\) | 0.95 m |
+| Slow-down distance | 0.50 m |
+| Stop tolerance | 0.03 m |
+
+The obstacle scenario applies the LiDAR state machine after the nominal LQR / pose-control command, so collision avoidance can temporarily override the nominal command.
+
+---
+
+## 6. Quantitative results
+
+The comparison is generated directly from the submitted code using:
+
+```powershell
+python -m scripts.compare_final_results
+```
+
+The script reads the nominal and obstacle metrics and writes:
+
+```text
+results/comparison/comparison_metrics.csv
+results/comparison/final_results_summary.txt
+results/comparison/camera_update_comparison.png
+results/comparison/docking_error_comparison.png
+```
+
+### Latest simulation results
 
 | Metric | Nominal | Obstacle |
 |---|---:|---:|
-| ArUco / visual EKF updates | 80 | 44 |
+| Camera updates | 80 | 44 |
 | Final localisation error | 0.01124 m | 0.00748 m |
 | Position RMSE | 0.03069 m | 0.05590 m |
-| Lateral RMSE | 0.08806 m | 0.14149 m |
-| Heading RMSE | 9.45 deg | 25.66 deg |
-| Final X docking error | -0.00962 m | -0.00667 m |
-| Final Y docking error | +0.00571 m | -0.00794 m |
-| Final planar docking error | **0.01119 m** | **0.01037 m** |
-| Final heading error | **-2.34 deg** | **+2.60 deg** |
-| Obstacle avoidance | Not applicable | Successful |
+| Final planar docking error | 0.01119 m | 0.01037 m |
+| Final heading error | −2.339° | 2.597° |
+| Obstacle avoidance | N/A | Successful |
 
-The obstacle case produces larger transient tracking and heading errors because the robot deliberately turns away from the direct path, but it recovers and achieves final docking accuracy comparable with the nominal case.
+The obstacle trial produced fewer camera updates and a higher position RMSE because obstacle avoidance changes the path and temporarily reduces the quality/frequency of visual correction. However, the final localisation error and final planar docking error remained close to 1 cm, showing that the estimator and final docking controller recovered after avoidance.
+
+The obstacle safety state machine completed the sequence:
+
+```text
+NORMAL → AVOIDING → RECOVERY → NORMAL → FINAL_DOCK
+```
+
+### Comparison figures
+
+![Docking error comparison](results/comparison/docking_error_comparison.png)
+
+![Camera update comparison](results/comparison/camera_update_comparison.png)
 
 ---
 
-## 2. System Architecture
+## 7. Installation
 
-```text
-Wheel encoders
-      |
-      v
-EKF prediction
-      |
-      +----------------------+
-      |                      |
-      |              RGB camera + ArUco
-      |                      |
-      |               pose measurement
-      |                      |
-      +-----------> EKF correction
-                         |
-                         v
-                Estimated robot pose
-                         |
-            +------------+------------+
-            |                         |
-            v                         v
-      LQR approach              Final pose
-       controller               controller
-            |                         |
-            +------------+------------+
-                         |
-                         v
-                Nominal command
-                         |
-          +--------------+--------------+
-          |                             |
-          | nominal scenario            | obstacle scenario
-          v                             v
-        Robot                 LiDAR safety override
-                                        |
-                                        v
-                                      Robot
-```
+Tested development environment:
 
-### Important implementation rule
+- Python 3.11.9
+- Git
+- VS Code
+- MuJoCo
+- NumPy
+- SciPy
+- Matplotlib
+- OpenCV / ArUco
 
-The controller receives the **EKF estimate**, not the MuJoCo ground-truth pose.
-
-Ground truth is used only to:
-
-- propagate the simulated robot,
-- simulate sensor measurements,
-- calculate errors and RMSE,
-- compare estimated and true trajectories.
-
----
-
-## 3. Main Components
-
-### 3.1 Differential-drive motion model
-
-The robot is represented by the planar state:
-
-```text
-x = [x, y, theta]
-```
-
-with control input:
-
-```text
-u = [v, omega]
-```
-
-The MuJoCo environment provides the 3D scene, cameras and ray casting, while planar robot motion is propagated using the differential-drive/unicycle kinematic model.
-
-### 3.2 Wheel encoders
-
-Wheel angular-speed measurements are simulated with random encoder noise and a small right-wheel encoder bias. The noisy wheel measurements are converted back to measured `v` and `omega` for EKF prediction.
-
-### 3.3 Extended Kalman Filter
-
-The EKF fuses:
-
-1. wheel-encoder odometry for prediction, and
-2. ArUco-derived robot pose for visual correction.
-
-Heading innovations are angle-wrapped, and the covariance update uses the Joseph form.
-
-### 3.4 ArUco camera localisation
-
-The forward RGB camera detects an ArUco marker at the docking station. OpenCV is used for marker detection, corner extraction, `solvePnP`, and conversion of marker/camera geometry into robot pose in the world frame.
-
-### 3.5 LQR approach control
-
-The approach controller regulates lateral deviation and heading error.
-
-Current design settings:
-
-```text
-q_y       = 8.0
-q_heading = 4.0
-r_omega   = 1.2
-```
-
-The resulting gain is approximately:
-
-```text
-K = [2.582, 2.065]
-```
-
-### 3.6 Final pose docking controller
-
-Near the docking station, control switches from LQR approach control to a pose controller with target:
-
-```text
-[1.20 m, 0.00 m, 0 deg]
-```
-
-### 3.7 LiDAR obstacle safety layer
-
-The obstacle scenario uses left, front and right LiDAR rays at approximately +20 deg, 0 deg and -20 deg.
-
-State sequence:
-
-```text
-NORMAL -> AVOIDING -> RECOVERY -> NORMAL
-```
-
-In the **nominal scenario**, LiDAR is measured and plotted but does not override the controller.
-
----
-
-## 4. Key Configuration
-
-```text
-DT               = 0.05 s
-Wheel radius     = 0.033 m
-Wheel base       = 0.160 m
-Nominal speed    = 0.18 m/s
-Simulation time  = 20 s
-Camera FOV       = 90 deg
-Video frame rate = 20 fps
-```
-
-Initial true pose:
-
-```text
-[0.00 m, 0.25 m, 8 deg]
-```
-
-Initial EKF estimate:
-
-```text
-[0.00 m, 0.20 m, 6 deg]
-```
-
-Docking target:
-
-```text
-[1.20 m, 0.00 m, 0 deg]
-```
-
-ArUco marker world position:
-
-```text
-[1.755 m, 0.00 m, 0.35 m]
-```
-
----
-
-## 5. Repository Structure
-
-```text
-41014_Final_Project/
-|
-|-- assets/
-|   |-- empty_world.xml
-|   |-- nominal_world.xml
-|   |-- obstacle_world.xml
-|   `-- aruco_0.png
-|
-|-- src/
-|   |-- __init__.py
-|   |-- config.py
-|   |-- model.py
-|   |-- sensors.py
-|   |-- ekf.py
-|   |-- controller.py
-|   |-- lidar.py
-|   |-- vision.py
-|   `-- utils.py
-|
-|-- scripts/
-|   |-- simulate_mujoco_nominal.py
-|   |-- simulate_mujoco_obstacle_trial.py
-|   |-- compare_final_results.py
-|   `-- supporting tests and development scripts
-|
-|-- results/
-|   |-- nominal/
-|   |-- obstacle/
-|   `-- comparison/
-|
-|-- requirements.txt
-`-- README.md
-```
-
----
-
-## 6. Software Environment
-
-```text
-Operating system : Windows
-Python           : 3.11.9
-Virtual env      : .venv
-Git              : 2.56.0.windows.2
-Editor           : Visual Studio Code
-Simulation       : MuJoCo
-Computer vision  : OpenCV contrib
-Numerical tools  : NumPy / SciPy
-Plotting         : Matplotlib
-```
-
-Dependencies in `requirements.txt`:
-
-```text
-numpy
-scipy
-matplotlib
-mujoco
-opencv-contrib-python
-```
-
----
-
-## 7. Setup
+From a fresh clone:
 
 ```powershell
-cd C:\41014_Final_Project
+git clone <YOUR-GITHUB-REPOSITORY-URL>
+cd 41014_Final_Project
+```
+
+Create and activate the virtual environment:
+
+```powershell
 python -m venv .venv
-.\.venv\Scripts\Activate.ps1
-python -m pip install -r requirements.txt
+.venv\Scripts\activate
 ```
 
-Optional checks:
+Install dependencies:
 
 ```powershell
-python -c "import mujoco; print(mujoco.__version__)"
-python -c "import cv2; print(cv2.__version__); print(hasattr(cv2, 'aruco'))"
+python -m pip install --upgrade pip
+pip install -r requirements.txt
 ```
 
 ---
 
-## 8. Running the Final Simulations
+## 8. Run instructions
 
-### Nominal scenario
+Run all commands from the repository root so the `src` package is resolved correctly.
+
+### Nominal docking simulation
 
 ```powershell
-python -m py_compile scripts\simulate_mujoco_nominal.py
 python -m scripts.simulate_mujoco_nominal
 ```
 
-Outputs:
+Outputs are saved under:
 
 ```text
 results/nominal/
 ```
 
-### Obstacle scenario
+### Obstacle docking simulation
 
 ```powershell
-python -m py_compile scripts\simulate_mujoco_obstacle_trial.py
 python -m scripts.simulate_mujoco_obstacle_trial
 ```
 
-Outputs:
+Outputs are saved under:
 
 ```text
 results/obstacle/
 ```
 
-### Final comparison
+### Compare the final results
 
 ```powershell
-python -m py_compile scripts\compare_final_results.py
 python -m scripts.compare_final_results
 ```
 
-Outputs:
+Outputs are saved under:
 
 ```text
 results/comparison/
 ```
 
+The main simulation code records trajectories, localisation errors, lateral/heading errors, docking errors, camera updates and video outputs.
+
 ---
 
-## 9. Generated Evidence
-
-Each final scenario produces:
+## 9. Repository structure
 
 ```text
-metrics.csv
-trajectory_history.csv
-simulation.mp4
-robot_camera.mp4
-birdseye_perspective.mp4
-top_view.mp4
-four_view_grid.mp4
-trajectory.png
-lateral_error.png
-heading_error.png
-control_commands.png
-lidar_clearance.png
-aruco_updates.png
-latest_aruco_detection.png
+41014_Final_Project/
+├── assets/                 # MuJoCo worlds and simulation assets
+├── src/                    # Robot model, sensors, EKF, controller and LiDAR modules
+├── scripts/                # Nominal, obstacle and comparison scripts
+├── results/
+│   ├── nominal/
+│   ├── obstacle/
+│   └── comparison/
+├── requirements.txt
+└── README.md
 ```
 
-The four-view grid combines:
+---
+
+## 10. Contribution statement
+
+> **Complete this table with the agreed team contribution record before final submission.**  
+> Contributions should describe what each person actually implemented, tested, analysed or documented.
+
+| Team member | Contribution |
+|---|---|
+| Gil Martin A. Guape | [Replace with agreed contribution statement — e.g. modelling, EKF/controller integration, simulation testing, quantitative comparison, documentation.] |
+| [Member 2] | [Contribution] |
+| [Member 3] | [Contribution] |
+| [Member 4, if applicable] | [Contribution] |
+
+All team members are expected to understand the complete sensing-estimation-control pipeline for the individual viva voce.
+
+---
+
+## 11. Generative AI declaration
+
+Generative AI was used as a support tool during project development. The submitted design decisions, code, results and explanations remain the responsibility of the project team.
+
+| Tool | Purpose | Verification |
+|---|---|---|
+| OpenAI ChatGPT | Coding guidance and debugging support; explanation of EKF/LQR concepts; README/documentation drafting; preparation for simulation review and viva questions | Generated suggestions were checked against the lecture material, project code and executed simulation outputs before being retained. |
+| [Add any other GenAI tool actually used] | [Purpose] | [How output was checked] |
+
+AI-generated suggestions were not treated as simulation evidence. Quantitative values reported above come from the project scripts and saved result files.
+
+---
+
+## 12. Key limitations and next step
+
+The current results demonstrate the complete pipeline in MuJoCo, but simulation does not reproduce all hardware effects. Real testing may require retuning because of wheel slip, motor deadband, camera calibration error, sensor latency, frame alignment and different measurement noise.
+
+The next stage is staged hardware validation while keeping the same architecture:
 
 ```text
-+---------------------------+---------------------------+
-| OVERVIEW                  | ROBOT CAMERA              |
-+---------------------------+---------------------------+
-| BIRD'S-EYE PERSPECTIVE    | TOP VIEW                  |
-+---------------------------+---------------------------+
+Sensors → EKF → Estimated State → Controller → Robot
 ```
 
-Its status bar shows simulation time, active controller, scenario/LiDAR state, ArUco visibility and EKF visual update status.
-
----
-
-## 10. Comparison Outputs
-
-`compare_final_results.py` generates:
-
-```text
-results/comparison/
-|-- comparison_metrics.csv
-|-- camera_update_comparison.png
-|-- docking_error_comparison.png
-|-- heading_error_comparison.png
-|-- localisation_rmse_comparison.png
-|-- trajectory_comparison.png
-`-- final_results_summary.txt
-```
-
-The trajectory comparison shows the nominal direct approach, the obstacle-avoidance detour, recovery toward the docking line, and convergence of both scenarios near the same final target.
-
----
-
-## 11. Hardware Lab Induction Demonstration
-
-Recommended presentation sequence:
-
-1. Show this README and repository structure.
-2. Explain: **encoders + ArUco -> EKF -> estimated state -> controller -> robot**.
-3. Emphasise that the controller does **not** use ground truth.
-4. Show the nominal `four_view_grid.mp4`.
-5. Show the obstacle `four_view_grid.mp4`.
-6. Point out `NORMAL -> AVOIDING -> RECOVERY -> NORMAL`.
-7. Show `trajectory_comparison.png`.
-8. Show the final nominal-vs-obstacle metrics.
-9. Explain why obstacle motion increases transient RMSE but final docking remains accurate.
-10. Explain how the simulation interfaces will map to real encoders, LiDAR, camera and motor commands.
-
-### One-sentence project summary
-
-> The simulation integrates wheel odometry, ArUco vision, EKF localisation, LQR path control, final pose control and LiDAR obstacle avoidance to autonomously approach and dock a differential-drive robot using estimated-state feedback.
-
----
-
-## 12. Hardware Induction Readiness
-
-The current simulation demonstrates:
-
-- differential-drive modelling,
-- wheel-encoder sensing,
-- camera/ArUco localisation,
-- LiDAR ranging,
-- EKF sensor fusion,
-- estimated-state feedback,
-- LQR approach control,
-- final pose docking,
-- obstacle avoidance and recovery,
-- quantitative nominal/obstacle evaluation.
-
-For hardware implementation, the simulation interfaces must be mapped to real:
-
-```text
-wheel encoder data
-2D LiDAR scans
-RGB camera images
-motor velocity commands
-robot coordinate frames
-sensor calibration parameters
-```
-
-The simulation should remain the baseline for later simulation-vs-hardware comparison.
-
----
-
-## 13. Known Notes
-
-### GLFW shutdown warning
-
-After a successful Windows run, the terminal may print:
-
-```text
-GLFWError: (65537) b'The GLFW library is not initialized'
-```
-
-This has been observed during viewer cleanup after metrics, figures and videos have already been saved. It is not treated as a failed simulation when all expected outputs were generated successfully.
-
-### Kinematic MuJoCo motion
-
-MuJoCo provides the 3D environment, rendering, camera sensing and LiDAR ray casting. Planar robot motion is updated using the differential-drive kinematic model rather than detailed tyre/contact dynamics.
-
----
-
-## 14. Current Limitations
-
-- static simulation environment,
-- single ArUco docking marker,
-- simplified LiDAR safety behaviour,
-- kinematic rather than wheel-contact dynamics,
-- fixed encoder noise/bias model,
-- no hardware sensor calibration yet,
-- no real communication latency or actuator dynamics.
-
----
-
-## 15. Next Stage — Hardware
-
-```text
-Working MuJoCo simulation
-        |
-        v
-Hardware induction
-        |
-        v
-Real sensor inspection and calibration
-        |
-        v
-Encoder / LiDAR / camera interface mapping
-        |
-        v
-Low-speed motor-command validation
-        |
-        v
-EKF validation on real measurements
-        |
-        v
-Controller validation
-        |
-        v
-Obstacle and docking experiments
-        |
-        v
-Simulation vs hardware comparison
-```
-
-Hardware testing should begin with individual sensor and actuator checks before attempting the complete autonomous docking mission.
-
----
-
-## 16. Academic Integrity and AI Declaration
-
-The final project page should acknowledge external examples, tutorials and code structures used during development.
-
-Generative AI use should also be declared according to subject requirements, including the tool and purpose. For this project, AI-assisted development may be described transparently as support for code explanation, debugging, documentation, simulation planning and viva preparation. The team remains responsible for understanding, verifying and presenting the submitted implementation.
-
----
-
-## 17. Final Simulation Summary
-
-The project demonstrates an end-to-end sensing, estimation and control pipeline in MuJoCo.
-
-The obstacle scenario causes larger transient localisation, lateral and heading errors during the avoidance manoeuvre. After recovery, however, the robot successfully returns to the docking task and achieves a final planar docking error of approximately **10.4 mm**, comparable with approximately **11.2 mm** in the nominal run.
-
-This simulation provides the baseline for the next phase of hardware validation.
+A quantitative simulation-versus-hardware comparison will be used to evaluate how the system changes on the physical platform.
