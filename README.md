@@ -19,14 +19,14 @@ Two scenarios are evaluated:
 
 The docking target is
 
-\[
+```math
 \mathbf{x}_d =
 \begin{bmatrix}
 1.20 & 0 & 0
 \end{bmatrix}^{T}
-\]
+```
 
-for \(x=1.20\text{ m}\), \(y=0\text{ m}\), and \(\theta=0^\circ\).
+for $x=1.20\text{ m}$, $y=0\text{ m}$, and $\theta=0^\circ$.
 
 ---
 
@@ -56,10 +56,10 @@ flowchart LR
 
 The main frames are:
 
-- **World frame \(\{W\}\):** fixed MuJoCo map frame.
-- **Robot/body frame \(\{B\}\):** attached to the differential-drive robot.
-- **Camera frame \(\{C\}\):** attached to the front camera.
-- **ArUco marker frame \(\{M\}\):** fixed at the docking station.
+- **World frame $\{W\}$:** fixed MuJoCo map frame.
+- **Robot/body frame $\{B\}$:** attached to the differential-drive robot.
+- **Camera frame $\{C\}$:** attached to the front camera.
+- **ArUco marker frame $\{M\}$:** fixed at the docking station.
 
 The camera detects the known marker and estimates marker-to-camera pose. This is transformed into a robot pose in the world frame before the EKF measurement update.
 
@@ -69,7 +69,7 @@ The camera detects the known marker and estimates marker-to-camera pose. This is
 
 The robot state and control input are
 
-\[
+```math
 \mathbf{x}=
 \begin{bmatrix}
 x & y & \theta
@@ -79,31 +79,31 @@ x & y & \theta
 \begin{bmatrix}
 v & \omega
 \end{bmatrix}^{T}.
-\]
+```
 
 The unicycle kinematic model is
 
-\[
+```math
 \dot{x}=v\cos\theta,\qquad
 \dot{y}=v\sin\theta,\qquad
 \dot{\theta}=\omega.
-\]
+```
 
-For a differential-drive robot with wheel radius \(r\), wheelbase \(L\), and wheel angular velocities \(\omega_R,\omega_L\),
+For a differential-drive robot with wheel radius $r$, wheelbase $L$, and wheel angular velocities $\omega_R,\omega_L$,
 
-\[
+```math
 v=\frac{r}{2}(\omega_R+\omega_L),
 \qquad
 \omega=\frac{r}{L}(\omega_R-\omega_L).
-\]
+```
 
 ### Model parameters
 
 | Parameter | Value |
 |---|---:|
-| Simulation time step, \(\Delta t\) | 0.05 s |
-| Wheel radius, \(r\) | 0.033 m |
-| Wheelbase, \(L\) | 0.16 m |
+| Simulation time step, $\Delta t$ | 0.05 s |
+| Wheel radius, $r$ | 0.033 m |
+| Wheelbase, $L$ | 0.16 m |
 | Maximum forward speed | 0.18 m/s |
 | Simulation duration | 20 s |
 
@@ -111,16 +111,16 @@ v=\frac{r}{2}(\omega_R+\omega_L),
 
 The LQR approach controller uses the small-error states
 
-\[
+```math
 \mathbf{e}=
 \begin{bmatrix}
 e_y & e_\theta
 \end{bmatrix}^{T}.
-\]
+```
 
-For approximately constant forward speed \(v\),
+For approximately constant forward speed $v$,
 
-\[
+```math
 \dot{\mathbf{e}}
 =
 \begin{bmatrix}
@@ -132,20 +132,20 @@ For approximately constant forward speed \(v\),
 0\\
 1
 \end{bmatrix}\omega.
-\]
+```
 
 The controllability matrix is
 
-\[
+```math
 \mathcal{C}=[B\ AB]
 =
 \begin{bmatrix}
 0 & v\\
 1 & 0
 \end{bmatrix}.
-\]
+```
 
-For \(v\neq0\), \(\operatorname{rank}(\mathcal C)=2\), so the lateral-heading error model is controllable.
+For $v\neq0$, $\operatorname{rank}(\mathcal C)=2$, so the lateral-heading error model is controllable.
 
 ---
 
@@ -155,11 +155,11 @@ For \(v\neq0\), \(\operatorname{rank}(\mathcal C)=2\), so the lateral-heading er
 
 Wheel angular velocity is deliberately corrupted to prevent unrealistically perfect odometry:
 
-\[
+```math
 \omega_m=\omega_{\text{true}}+b+\eta,
 \qquad
 \eta\sim\mathcal N(0,\sigma^2).
-\]
+```
 
 | Encoder parameter | Value |
 |---|---:|
@@ -179,8 +179,8 @@ The front camera detects ArUco marker ID 0. OpenCV `solvePnP` estimates the mark
 | Field of view | 90° |
 | ArUco marker side length | 0.30 m |
 | Camera update interval | every 5 simulation steps |
-| Pose noise in \(x\) | 0.01 m |
-| Pose noise in \(y\) | 0.01 m |
+| Pose noise in $x$ | 0.01 m |
+| Pose noise in $y$ | 0.01 m |
 | Pose noise in heading | 1° |
 
 ### LiDAR
@@ -204,43 +204,43 @@ The EKF fuses noisy encoder motion with intermittent camera pose measurements.
 
 ### Prediction
 
-\[
+```math
 \hat{\mathbf{x}}_{k+1}^{-}
 =
 f(\hat{\mathbf{x}}_k,\mathbf{u}_k)
-\]
+```
 
 with
 
-\[
+```math
 f(\mathbf{x},\mathbf{u})=
 \begin{bmatrix}
 x+v\cos\theta\,\Delta t\\
 y+v\sin\theta\,\Delta t\\
 \theta+\omega\Delta t
 \end{bmatrix}.
-\]
+```
 
 The state Jacobian is
 
-\[
+```math
 F_k=
 \begin{bmatrix}
 1 & 0 & -v\sin\theta\,\Delta t\\
 0 & 1 &  v\cos\theta\,\Delta t\\
 0 & 0 & 1
 \end{bmatrix},
-\]
+```
 
 and covariance prediction is
 
-\[
+```math
 P_{k+1}^{-}=F_kP_kF_k^T+Q.
-\]
+```
 
 Current process covariance:
 
-\[
+```math
 Q=
 \operatorname{diag}
 \left(
@@ -248,35 +248,35 @@ Q=
 0.002^2,\;
 (0.5^\circ)^2
 \right).
-\]
+```
 
 ### Camera update
 
 The camera supplies a pose measurement
 
-\[
+```math
 \mathbf{z}=
 \begin{bmatrix}
 x_c & y_c & \theta_c
 \end{bmatrix}^{T}
-\]
+```
 
-with direct pose measurement model \(H=I\).
+with direct pose measurement model $H=I$.
 
-\[
+```math
 K=P^-H^T(HP^-H^T+R)^{-1}
-\]
+```
 
-\[
+```math
 \hat{\mathbf{x}}
 =
 \hat{\mathbf{x}}^-+
 K(\mathbf{z}-H\hat{\mathbf{x}}^-).
-\]
+```
 
 The measurement covariance is
 
-\[
+```math
 R=
 \operatorname{diag}
 \left(
@@ -284,9 +284,9 @@ R=
 0.01^2,\;
 (1^\circ)^2
 \right).
-\]
+```
 
-Because \(H=I\) when the marker is visible, all three pose states are directly observed by the visual pose update. When the marker is not visible, the EKF continues encoder-based prediction and uncertainty grows until visual correction becomes available again.
+Because $H=I$ when the marker is visible, all three pose states are directly observed by the visual pose update. When the marker is not visible, the EKF continues encoder-based prediction and uncertainty grows until visual correction becomes available again.
 
 ---
 
@@ -294,10 +294,10 @@ Because \(H=I\) when the marker is visible, all three pose states are directly o
 
 The controller uses the EKF estimate
 
-\[
+```math
 \hat{\mathbf{x}}=
 [\hat{x},\hat{y},\hat{\theta}]^T
-\]
+```
 
 and never the simulator ground truth.
 
@@ -305,7 +305,7 @@ and never the simulator ground truth.
 
 Before the final docking region, LQR corrects lateral and heading error.
 
-\[
+```math
 J=
 \int
 \left(
@@ -313,11 +313,11 @@ J=
 +
 \omega^TR_c\omega
 \right)dt
-\]
+```
 
 with
 
-\[
+```math
 Q_c=
 \begin{bmatrix}
 8&0\\
@@ -325,37 +325,37 @@ Q_c=
 \end{bmatrix},
 \qquad
 R_c=[1.2].
-\]
+```
 
 The steering law is
 
-\[
+```math
 \omega=-K\mathbf{e}.
-\]
+```
 
 | LQR parameter | Value |
 |---|---:|
-| \(q_y\) | 8.0 |
-| \(q_\theta\) | 4.0 |
-| \(r_\omega\) | 1.2 |
+| $q_y$ | 8.0 |
+| $q_\theta$ | 4.0 |
+| $r_\omega$ | 1.2 |
 | Angular-rate limit | 1.5 rad/s |
 | Maximum forward speed | 0.18 m/s |
 
-The larger lateral-error weight makes centreline convergence the main objective while \(R_c\) prevents unnecessarily aggressive steering.
+The larger lateral-error weight makes centreline convergence the main objective while $R_c$ prevents unnecessarily aggressive steering.
 
 ### Phase 2 — final pose docking
 
 At approximately
 
-\[
+```math
 \hat{x}\ge0.95\text{ m},
-\]
+```
 
 the controller switches to a final pose controller. It regulates remaining position and heading error and slows the robot near the target.
 
 | Docking parameter | Value |
 |---|---:|
-| Final docking start \(x\) | 0.95 m |
+| Final docking start $x$ | 0.95 m |
 | Slow-down distance | 0.50 m |
 | Stop tolerance | 0.03 m |
 
