@@ -145,7 +145,7 @@ The controllability matrix is
 \end{bmatrix}.
 ```
 
-For $v\neq0$, $\operatorname{rank}(\mathcal C)=2$, so the lateral-heading error model is controllable.
+For $v\neq0$, $\mathrm{rank}(\mathcal C)=2$, so the lateral-heading error model is controllable.
 
 ---
 
@@ -242,7 +242,7 @@ Current process covariance:
 
 ```math
 Q=
-\operatorname{diag}
+\mathrm{diag}
 \left(
 0.002^2,\;
 0.002^2,\;
@@ -278,7 +278,7 @@ The measurement covariance is
 
 ```math
 R=
-\operatorname{diag}
+\mathrm{diag}
 \left(
 0.01^2,\;
 0.01^2,\;
@@ -399,11 +399,13 @@ The obstacle safety state machine completed the sequence:
 NORMAL → AVOIDING → RECOVERY → NORMAL → FINAL_DOCK
 ```
 
-### Comparison figures
+### Example result figures
 
-![Docking error comparison](results/comparison/docking_error_comparison.png)
+The following figures are committed in the repository and therefore render directly on GitHub. The comparison script also generates additional comparison figures locally under `results/comparison/`; commit that folder if you want those comparison plots to appear on the project page.
 
-![Camera update comparison](results/comparison/camera_update_comparison.png)
+![Nominal trajectory](results/nominal/trajectory.png)
+
+![Nominal ArUco updates](results/nominal/aruco_updates.png)
 
 ---
 
