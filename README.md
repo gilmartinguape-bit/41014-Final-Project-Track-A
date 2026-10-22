@@ -514,9 +514,7 @@ The main simulation code records trajectories, localisation errors, lateral/head
 | Team member | Contribution |
 |---|---|
 | Gil Martin A. Guape | [Replace with agreed contribution statement — e.g. modelling, EKF/controller integration, simulation testing, quantitative comparison, documentation.] |
-| [Member 2] | [Contribution] |
-| [Member 3] | [Contribution] |
-| [Member 4, if applicable] | [Contribution] |
+
 
 All team members are expected to understand the complete sensing-estimation-control pipeline for the individual viva voce.
 
@@ -529,7 +527,7 @@ Generative AI was used as a support tool during project development. The submitt
 | Tool | Purpose | Verification |
 |---|---|---|
 | OpenAI ChatGPT | Coding guidance and debugging support; explanation of EKF/LQR concepts; README/documentation drafting; preparation for simulation review and viva questions | Generated suggestions were checked against the lecture material, project code and executed simulation outputs before being retained. |
-| [Add any other GenAI tool actually used] | [Purpose] | [How output was checked] |
+
 
 AI-generated suggestions were not treated as simulation evidence. Quantitative values reported above come from the project scripts and saved result files.
 
