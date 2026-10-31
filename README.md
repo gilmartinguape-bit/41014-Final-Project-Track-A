@@ -217,7 +217,7 @@ P_{k+1}^{-}=F_kP_kF_k^{T}+Q,
 with final process covariance
 
 ```math
-Q=\operatorname{diag}\left(0.002^2,\ 0.002^2,\ (0.5^\circ)^2\right).
+Q=\mathrm{diag}\left(0.002^2,\ 0.002^2,\ (0.5^\circ)^2\right).
 ```
 
 ### Camera update
@@ -249,7 +249,7 @@ and the corrected state is
 The measurement covariance is
 
 ```math
-R=\operatorname{diag}\left(0.01^2,\ 0.01^2,\ (1^\circ)^2\right).
+R=\mathrm{diag}\left(0.01^2,\ 0.01^2,\ (1^\circ)^2\right).
 ```
 
 When the marker leaves the camera view, the EKF continues encoder-based prediction until another visual correction becomes available.
