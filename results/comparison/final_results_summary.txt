@@ -1,0 +1,73 @@
+FINAL RESULT COMPARISON
+=======================
+
+Nominal scenario
+----------------
+Camera / EKF updates:
+80
+
+Position RMSE:
+0.027431 m
+
+Lateral RMSE:
+0.088739 m
+
+Heading RMSE:
+9.537 deg
+
+Final planar docking error:
+0.008778 m
+
+Final heading error:
+2.351 deg
+
+
+Obstacle scenario
+-----------------
+Camera / EKF updates:
+23
+
+Position RMSE:
+0.039124 m
+
+Lateral RMSE:
+0.137909 m
+
+Heading RMSE:
+25.951 deg
+
+Final planar docking error:
+0.004882 m
+
+Final heading error:
+2.258 deg
+
+
+Comparison
+----------
+Position RMSE increased by approximately
+42.6% in the obstacle scenario.
+
+Lateral RMSE increased by approximately
+55.4% in the obstacle scenario.
+
+Heading RMSE increased by approximately
+172.1% because of the deliberate
+obstacle-avoidance turn and recovery manoeuvre.
+
+Despite the larger transient deviations, the final docking
+accuracy remained similar:
+
+Nominal planar docking error:
+8.8 mm
+
+Obstacle planar docking error:
+4.9 mm
+
+Both scenarios also finished with an absolute heading error
+below 3 degrees.
+
+The obstacle scenario therefore demonstrates that the robot
+can recover from a LiDAR-triggered avoidance manoeuvre and
+still achieve docking accuracy comparable with the nominal
+unobstructed run.

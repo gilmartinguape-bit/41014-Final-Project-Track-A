@@ -177,7 +177,7 @@ def docking_pose_control(
     estimated_state,
     target_pose,
     max_linear_speed=0.12,
-    max_angular_speed=1.0,
+    max_angular_speed=0.5,
     k_rho=0.8,
     k_alpha=2.0,
     k_beta=-0.6,
@@ -282,7 +282,7 @@ def docking_pose_control(
         ):
 
             omega = np.clip(
-                1.5 * heading_error,
+                0.8 * heading_error,
                 -max_angular_speed,
                 max_angular_speed
             )

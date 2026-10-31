@@ -704,6 +704,8 @@ def add_video_label(
 
     return labelled_frame
 
+
+
 # ==================================================
 # VIEWER
 # ==================================================
@@ -1512,6 +1514,61 @@ true_heading_error_history = np.array(
     true_heading_error_history
 )
 
+# ==================================================
+# SAVE TRAJECTORY HISTORY CSV
+# ==================================================
+
+trajectory_history_path = (
+    results_dir
+    / "trajectory_history.csv"
+)
+
+with open(
+    trajectory_history_path,
+    "w",
+    newline=""
+) as csvfile:
+
+    writer = csv.writer(
+        csvfile
+    )
+
+    writer.writerow([
+        "time_s",
+        "true_x_m",
+        "true_y_m",
+        "ekf_x_m",
+        "ekf_y_m"
+    ])
+
+    for (
+        time_value,
+        true_x,
+        true_y,
+        ekf_x,
+        ekf_y
+    ) in zip(
+        time_history,
+        true_x_history,
+        true_y_history,
+        ekf_x_history,
+        ekf_y_history
+    ):
+
+        writer.writerow([
+            time_value,
+            true_x,
+            true_y,
+            ekf_x,
+            ekf_y
+        ])
+
+print()
+
+print(
+    f"Saved trajectory history to: "
+    f"{trajectory_history_path}"
+)
 
 # ==================================================
 # METRICS

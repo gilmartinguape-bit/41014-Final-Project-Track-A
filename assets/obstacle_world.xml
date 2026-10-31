@@ -1,4 +1,47 @@
-<mujoco model="simple_turtlebot">
+<mujoco model="turtlebot3_waffle_pi_obstacle">
+
+    <compiler
+        angle="radian"
+        meshdir="turtlebot3_waffle_pi/"
+    />
+
+    <asset>
+
+        <material
+            name="tb3_black"
+            rgba="0.08 0.08 0.08 1"
+        />
+
+        <material
+            name="tb3_grey"
+            rgba="0.30 0.30 0.30 1"
+        />
+
+        <mesh
+            name="waffle_pi_base"
+            file="waffle_pi_base.stl"
+            scale="0.001 0.001 0.001"
+        />
+
+        <mesh
+            name="left_tire"
+            file="left_tire.stl"
+            scale="0.001 0.001 0.001"
+        />
+
+        <mesh
+            name="right_tire"
+            file="right_tire.stl"
+            scale="0.001 0.001 0.001"
+        />
+
+        <mesh
+            name="lds"
+            file="lds.stl"
+            scale="0.001 0.001 0.001"
+        />
+
+    </asset>
 
     <option timestep="0.01" gravity="0 0 -9.81"/>
 
@@ -155,6 +198,12 @@
             pos="0 0 0"
         >
 
+            <!--
+                Planar project interface.
+                These joint names are retained so the existing Python
+                simulation scripts continue to work unchanged.
+            -->
+
             <joint
                 name="robot_x"
                 type="slide"
@@ -173,77 +222,173 @@
                 axis="0 0 1"
             />
 
+            <!--
+                Main TurtleBot3 Waffle Pi chassis.
+                Geometry and placement based on the official ROBOTIS
+                MuJoCo model.
+            -->
+
+            <inertial
+                pos="-0.064 0 0.060"
+                mass="1.8"
+                diaginertia="0.01 0.01 0.008"
+            />
+
+            <!-- Waffle Pi visual chassis -->
+
             <geom
-                name="base"
-                type="cylinder"
-                size="0.105 0.055"
-                pos="0 0 0.055"
-                mass="0.8"
+                name="waffle_pi_base_visual"
+                type="mesh"
+                mesh="waffle_pi_base"
+                pos="-0.064 0 0.010"
+                material="tb3_black"
                 contype="0"
                 conaffinity="0"
-                rgba="0.1 0.3 0.8 1"
+                density="0"
+            />
+
+            <!--
+                Simplified collision body.
+                We keep collision simple and robust rather than using
+                the full STL as the collision mesh.
+            -->
+
+            <geom
+                name="waffle_pi_collision"
+                type="box"
+                pos="-0.045 0 0.070"
+                size="0.135 0.140 0.065"
+                rgba="0 0 0 0"
+                mass="0.001"
+            />
+
+            <!-- Rear support/caster contact approximations -->
+
+            <geom
+                name="rear_support_left"
+                type="sphere"
+                pos="-0.177 0.064 0.005"
+                size="0.005"
+                rgba="0.3 0.3 0.3 1"
+                friction="0.0001 0.0001 0.0001"
+            />
+
+            <geom
+                name="rear_support_right"
+                type="sphere"
+                pos="-0.177 -0.064 0.005"
+                size="0.005"
+                rgba="0.3 0.3 0.3 1"
+                friction="0.0001 0.0001 0.0001"
+            />
+
+            <!-- LDS / LiDAR -->
+
+            <geom
+                name="lds_visual"
+                type="mesh"
+                mesh="lds"
+                pos="-0.049 0 0.1255"
+                material="tb3_black"
+                contype="0"
+                conaffinity="0"
+                density="0"
             />
 
             <site
                 name="lidar_site"
-                pos="0 0 0.16"
+                pos="-0.049 0 0.145"
                 size="0.01"
-                rgba="0 1 0 1"
+                rgba="0 1 0 0"
+            />
+
+            <!-- Raspberry Pi Camera approximation -->
+
+            <geom
+                name="camera_body"
+                type="box"
+                pos="0.078 0 0.107"
+                size="0.0075 0.015 0.0135"
+                material="tb3_grey"
+                contype="0"
+                conaffinity="0"
             />
 
             <camera
                 name="front_camera"
-                pos="0.09 0 0.14"
+                pos="0.090 0 0.110"
                 xyaxes="0 -1 0 0 0 1"
                 fovy="90"
             />
 
+            <!-- Left drive wheel -->
 
             <body
                 name="left_wheel_body"
-                pos="0 0.080 0.035"
+                pos="0 0.144 0.033"
+                quat="0.707388 -0.706825 0 0"
             >
 
                 <joint
                     name="left_wheel_joint"
                     type="hinge"
-                    axis="0 1 0"
+                    axis="0 0 1"
+                    frictionloss="0.1"
+                    armature="0.01"
+                />
+
+                <inertial
+                    pos="0 0 0"
+                    quat="-0.000890159 0.706886 0.000889646 0.707326"
+                    mass="0.0284989"
+                    diaginertia="2.07126e-05 1.11924e-05 1.11756e-05"
                 />
 
                 <geom
                     name="left_wheel"
-                    type="cylinder"
-                    size="0.033 0.012"
-                    euler="1.5708 0 0"
-                    mass="0.05"
+                    type="mesh"
+                    mesh="left_tire"
+                    quat="0.707388 0.706825 0 0"
+                    material="tb3_grey"
                     contype="0"
                     conaffinity="0"
-                    rgba="0.05 0.05 0.05 1"
+                    density="0"
                 />
-            
+
             </body>
 
-            
+            <!-- Right drive wheel -->
+
             <body
                 name="right_wheel_body"
-                pos="0 -0.080 0.035"
+                pos="0 -0.144 0.033"
+                quat="0.707388 -0.706825 0 0"
             >
 
                 <joint
                     name="right_wheel_joint"
                     type="hinge"
-                    axis="0 1 0"
+                    axis="0 0 1"
+                    frictionloss="0.1"
+                    armature="0.01"
+                />
+
+                <inertial
+                    pos="0 0 0"
+                    quat="-0.000890159 0.706886 0.000889646 0.707326"
+                    mass="0.0284989"
+                    diaginertia="2.07126e-05 1.11924e-05 1.11756e-05"
                 />
 
                 <geom
                     name="right_wheel"
-                    type="cylinder"
-                    size="0.033 0.012"
-                    euler="1.5708 0 0"
-                    mass="0.05"
+                    type="mesh"
+                    mesh="right_tire"
+                    quat="0.707388 0.706825 0 0"
+                    material="tb3_grey"
                     contype="0"
                     conaffinity="0"
-                    rgba="0.05 0.05 0.05 1"
+                    density="0"
                 />
 
             </body>

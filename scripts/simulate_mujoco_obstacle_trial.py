@@ -167,6 +167,13 @@ ekf = PoseEKF(
 
 max_forward_speed = 0.18
 
+# Maximum allowed forward acceleration
+# Used to avoid sudden speed increases after obstacle recovery.
+max_linear_acceleration = 0.12  # m/s^2
+
+# Maximum allowed angular acceleration during normal control
+max_angular_acceleration = 1.5  # rad/s^2
+
 q_y = 8.0
 q_heading = 4.0
 r_omega = 1.2
@@ -187,14 +194,14 @@ A, B, K = design_lqr(
 # ==================================================
 
 target_pose = np.array([
-    1.20,
+    1.30,
     0.0,
     0.0
 ])
 
 target_x = target_pose[0]
 
-final_docking_start_x = 0.95
+final_docking_start_x = 1.05
 
 slow_distance = 0.50
 
@@ -479,14 +486,19 @@ lidar_height = 0.16
 
 lidar_max_range = 3.5
 
-slow_obstacle_distance = 0.65
+slow_obstacle_distance = 0.75
 
-avoidance_enter_distance = 0.30
+avoidance_enter_distance = 0.40
 
-avoidance_exit_distance = 0.60
+avoidance_exit_distance = 0.75
 
+# Main front-obstacle avoidance
 avoidance_turn_rate = 0.8
 
+# Continuous Waffle Pi side/corner protection
+side_influence_distance = 0.55
+side_hard_distance = 0.30
+side_max_turn_rate = 0.45
 
 recovery_speed = 0.10
 
@@ -499,7 +511,7 @@ recovery_steps = int(
 # SIMULATION
 # ==================================================
 
-simulation_time = 20.0
+simulation_time = 25.0
 
 number_of_steps = int(
     simulation_time / DT
@@ -574,6 +586,34 @@ avoidance_steps_remaining = 0
 minimum_avoidance_steps = int(
     0.75 / DT
 )
+
+handover_duration = 0.60
+
+handover_steps = int(
+    round(handover_duration / DT)
+)
+
+handover_steps_remaining = 0
+
+# ==================================================
+# LQR -> FINAL DOCK HANDOVER
+# ==================================================
+
+dock_handover_duration = 0.60
+
+dock_handover_steps = int(
+    round(dock_handover_duration / DT)
+)
+
+dock_handover_steps_remaining = 0
+
+previous_controller_mode = "LQR_APPROACH"
+
+last_lqr_command = np.array([
+        0.0,
+        0.0
+    ])
+
 
 # ==================================================
 # OVERVIEW CAMERA FOR SAVED VIDEO
@@ -716,6 +756,15 @@ def add_video_label(
 # ==================================================
 # VIEWER
 # ==================================================
+def geom_name_from_id(geom_id):
+    if geom_id < 0:
+        return "NONE"
+
+    return mujoco.mj_id2name(
+        model,
+        mujoco.mjtObj.mjOBJ_GEOM,
+        geom_id
+    )
 
 with mujoco.viewer.launch_passive(
     model,
@@ -1052,7 +1101,6 @@ with mujoco.viewer.launch_passive(
                             cv2.COLOR_BGR2RGB
                         )
 
-
         # ==============================================
         # 7. CONTROLLER
         #
@@ -1076,23 +1124,26 @@ with mujoco.viewer.launch_passive(
                 )
             )
 
-
-            lqr_command, estimated_lateral_error, estimated_heading_error = (
-                lqr_control(
-                    ekf.state,
-                    K,
-                    forward_speed_command,
-                    omega_limit
-                )
+            (
+                lqr_command,
+                estimated_lateral_error,
+                estimated_heading_error
+            ) = lqr_control(
+                ekf.state,
+                K,
+                forward_speed_command,
+                omega_limit
             )
 
+            last_lqr_command = (
+                lqr_command.copy()
+            )
 
             nominal_control_command = (
                 lqr_command
             )
 
             controller_mode = "LQR_APPROACH"
-
 
         else:
 
@@ -1110,26 +1161,64 @@ with mujoco.viewer.launch_passive(
                 target_pose
             )
 
-
-            nominal_control_command = (
-                pose_command
-            )
-
-
             estimated_lateral_error = (
                 ekf.state[1]
                 - target_pose[1]
             )
-
 
             estimated_heading_error = wrap_angle(
                 ekf.state[2]
                 - target_pose[2]
             )
 
-
             controller_mode = "FINAL_DOCK"
 
+            # Detect the first transition into FINAL_DOCK
+            if (
+                previous_controller_mode
+                == "LQR_APPROACH"
+            ):
+                dock_handover_steps_remaining = (
+                    dock_handover_steps
+                )
+
+            # ------------------------------------------
+            # SMOOTH LQR -> FINAL DOCK HANDOVER
+            # ------------------------------------------
+
+            if dock_handover_steps_remaining > 0:
+
+                progress = (
+                    dock_handover_steps
+                    - dock_handover_steps_remaining
+                    + 1
+                ) / dock_handover_steps
+
+                progress = min(
+                    progress,
+                    1.0
+                )
+
+                nominal_control_command = (
+                    (1.0 - progress)
+                    * last_lqr_command
+                    +
+                    progress
+                    * pose_command
+                )
+
+                dock_handover_steps_remaining -= 1
+
+            else:
+
+                nominal_control_command = (
+                    pose_command
+                )
+
+        # Save controller mode for next iteration
+        previous_controller_mode = (
+            controller_mode
+        )
 
         # ==============================================
         # 8. LIDAR
@@ -1145,21 +1234,19 @@ with mujoco.viewer.launch_passive(
         left_angle = (
             true_state[2]
             +
-            np.deg2rad(20.0)
+            np.deg2rad(45.0)
         )
 
-
         front_angle = true_state[2]
-
 
         right_angle = (
             true_state[2]
             -
-            np.deg2rad(20.0)
+            np.deg2rad(45.0)
         )
 
 
-        left_distance, _ = cast_lidar_ray(
+        left_distance, left_geom_id = cast_lidar_ray(
             model,
             data,
             lidar_origin,
@@ -1167,8 +1254,7 @@ with mujoco.viewer.launch_passive(
             lidar_max_range
         )
 
-
-        front_distance, _ = cast_lidar_ray(
+        front_distance, front_geom_id = cast_lidar_ray(
             model,
             data,
             lidar_origin,
@@ -1176,8 +1262,7 @@ with mujoco.viewer.launch_passive(
             lidar_max_range
         )
 
-
-        right_distance, _ = cast_lidar_ray(
+        right_distance, right_geom_id = cast_lidar_ray(
             model,
             data,
             lidar_origin,
@@ -1185,7 +1270,10 @@ with mujoco.viewer.launch_passive(
             lidar_max_range
         )
 
-
+        left_hit_name = geom_name_from_id(left_geom_id)
+        front_hit_name = geom_name_from_id(front_geom_id)
+        right_hit_name = geom_name_from_id(right_geom_id)
+        
         # ==============================================
         # 9. LIDAR SAFETY OVERRIDE
         # ==============================================
@@ -1215,6 +1303,244 @@ with mujoco.viewer.launch_passive(
             minimum_avoidance_steps
         )
 
+        # ==================================================
+        # SMOOTH RECOVERY -> NORMAL HANDOVER
+        # ==================================================
+
+        # Detect the instant when recovery finishes.
+        if (
+            previous_avoidance_mode == "RECOVERY"
+            and avoidance_mode == "NORMAL"
+        ):
+            handover_steps_remaining = handover_steps
+
+
+        # Gradually return authority to the normal controller.
+        if (
+            avoidance_mode == "NORMAL"
+            and handover_steps_remaining > 0
+        ):
+
+            progress = (
+                handover_steps
+                - handover_steps_remaining
+                + 1
+            ) / handover_steps
+
+            progress = min(
+                progress,
+                1.0
+            )
+
+            # Smoothly increase forward command from recovery speed
+            # toward the nominal controller command.
+            control_command[0] = (
+                (1.0 - progress) * recovery_speed
+                +
+                progress * control_command[0]
+            )
+
+            # Smoothly introduce steering command.
+            control_command[1] = (
+                progress * control_command[1]
+            )
+
+            handover_steps_remaining -= 1
+
+        # ==================================================
+        # CONTINUOUS WAFFLE PI SIDE-OBSTACLE ASSIST
+        # ==================================================
+
+        safe_v = control_command[0]
+        safe_omega = control_command[1]
+
+        # Only actual obstacles are considered.
+        # Docking panel and walls are not treated as
+        # side-obstacle hazards here.
+
+        left_is_obstacle = (
+            left_hit_name is not None
+            and left_hit_name.startswith("obstacle_")
+        )
+
+        right_is_obstacle = (
+            right_hit_name is not None
+            and right_hit_name.startswith("obstacle_")
+        )
+
+        # Apply this assist only after normal avoidance
+        # and the recovery handover are complete.
+        if (
+            avoidance_mode == "NORMAL"
+            and handover_steps_remaining == 0
+        ):
+
+            # ------------------------------------------
+            # OBSTACLE ON LEFT
+            # ------------------------------------------
+
+            if (
+                left_is_obstacle
+                and left_distance < side_influence_distance
+            ):
+
+                # Emergency region
+                if left_distance <= side_hard_distance:
+
+                    safe_v = 0.0
+                    safe_omega = -side_max_turn_rate
+
+                else:
+
+                    strength = (
+                        side_influence_distance
+                        - left_distance
+                    ) / (
+                        side_influence_distance
+                        - side_hard_distance
+                    )
+
+                    strength = np.clip(
+                        strength,
+                        0.0,
+                        1.0
+                    )
+
+                    # Gradually reduce forward speed.
+                    if safe_v > 0.0:
+                        safe_v = (
+                            safe_v
+                            * (
+                                1.0
+                                - 0.5 * strength
+                            )
+                        )
+
+                    # Smoothly blend the LQR steering
+                    # toward a right-hand correction.
+                    safe_omega = (
+                        (1.0 - strength) * safe_omega
+                        +
+                        strength * (-side_max_turn_rate)
+                    )
+
+            # ------------------------------------------
+            # OBSTACLE ON RIGHT
+            # ------------------------------------------
+
+            elif (
+                right_is_obstacle
+                and right_distance < side_influence_distance
+            ):
+
+                # Emergency region
+                if right_distance <= side_hard_distance:
+
+                    safe_v = 0.0
+                    safe_omega = side_max_turn_rate
+
+                else:
+
+                    strength = (
+                        side_influence_distance
+                        - right_distance
+                    ) / (
+                        side_influence_distance
+                        - side_hard_distance
+                    )
+
+                    strength = np.clip(
+                        strength,
+                        0.0,
+                        1.0
+                    )
+
+                    # Gradually reduce forward speed.
+                    if safe_v > 0.0:
+                        safe_v = (
+                            safe_v
+                            * (
+                                1.0
+                                - 0.5 * strength
+                            )
+                        )
+
+                    # Smoothly blend the LQR steering
+                    # toward a left-hand correction.
+                    safe_omega = (
+                        (1.0 - strength) * safe_omega
+                        +
+                        strength * side_max_turn_rate
+                    )
+
+        # Final command sent to robot
+        control_command = np.array([
+            safe_v,
+            safe_omega
+        ])
+
+        # ==================================================
+        # LINEAR ACCELERATION LIMITER
+        # ==================================================
+        #
+        # Prevent sudden increases in forward speed when
+        # returning from obstacle recovery to normal motion.
+        #
+        # IMPORTANT:
+        # Deceleration is NOT limited so the safety system
+        # can still stop or slow the robot immediately.
+        # ==================================================
+
+        desired_v = control_command[0]
+
+        max_delta_v = (
+            max_linear_acceleration
+            * DT
+        )
+
+        # Limit acceleration only.
+        if desired_v > v_true:
+
+            control_command[0] = min(
+                desired_v,
+                v_true + max_delta_v
+            )
+
+        # ==================================================
+        # ANGULAR ACCELERATION / SLEW-RATE LIMITER
+        # ==================================================
+        #
+        # Smooth normal steering and final docking.
+        # Do NOT limit emergency AVOIDING/RECOVERY turns.
+        # ==================================================
+
+        if avoidance_mode == "NORMAL":
+
+            desired_omega = control_command[1]
+
+            max_delta_omega = (
+                max_angular_acceleration
+                * DT
+            )
+
+            delta_omega = (
+                desired_omega - omega_true
+            )
+
+            delta_omega = np.clip(
+                delta_omega,
+                -max_delta_omega,
+                max_delta_omega
+            )
+
+            control_command[1] = (
+                omega_true
+                + delta_omega
+            )
+
+        # ==================================================
+        # AVOIDANCE MODE TRANSITION TRACKING
+        # ==================================================
 
         if avoidance_mode != previous_avoidance_mode:
 
@@ -1223,7 +1549,7 @@ with mujoco.viewer.launch_passive(
                 f"{previous_avoidance_mode}"
                 f" -> "
                 f"{avoidance_mode}"
-        )
+            )
 
         previous_avoidance_mode = (
             avoidance_mode
@@ -1479,11 +1805,12 @@ with mujoco.viewer.launch_passive(
                 f"{step * DT:.1f} s | "
                 f"x={true_state[0]:.2f} m | "
                 f"y={true_state[1]:.2f} m | "
-                f"heading="
-                f"{np.degrees(true_state[2]):.1f} deg | "
+                f"heading={np.degrees(true_state[2]):.1f} deg | "
                 f"mode={avoidance_mode} | "
                 f"controller={controller_mode} | "
-                f"front={front_distance:.2f} m"
+                f"left={left_distance:.2f} m ({left_hit_name}) | "
+                f"front={front_distance:.2f} m ({front_hit_name}) | "
+                f"right={right_distance:.2f} m ({right_hit_name})"
             )
 
 
@@ -1580,6 +1907,16 @@ birdseye_writer.release()
 top_view_writer.release()
 grid_writer.release()
 
+# ==================================================
+# CLOSE MUJOCO RENDERERS CLEANLY
+# ==================================================
+
+renderer.close()
+video_renderer.close()
+robot_camera_renderer.close()
+birdseye_renderer.close()
+top_view_renderer.close()
+
 print()
 
 print(
@@ -1605,6 +1942,62 @@ print(
 print(
     f"Saved four-view grid video to: "
     f"{grid_video_path}"
+)
+
+# ==================================================
+# SAVE TRAJECTORY HISTORY CSV
+# ==================================================
+
+trajectory_history_path = (
+    results_dir
+    / "trajectory_history.csv"
+)
+
+with open(
+    trajectory_history_path,
+    "w",
+    newline=""
+) as csvfile:
+
+    writer = csv.writer(
+        csvfile
+    )
+
+    writer.writerow([
+        "time_s",
+        "true_x_m",
+        "true_y_m",
+        "ekf_x_m",
+        "ekf_y_m"
+    ])
+
+    for (
+        time_value,
+        true_x,
+        true_y,
+        ekf_x,
+        ekf_y
+    ) in zip(
+        time_history,
+        true_x_history,
+        true_y_history,
+        ekf_x_history,
+        ekf_y_history
+    ):
+
+        writer.writerow([
+            time_value,
+            true_x,
+            true_y,
+            ekf_x,
+            ekf_y
+        ])
+
+print()
+
+print(
+    f"Saved trajectory history to: "
+    f"{trajectory_history_path}"
 )
 
 # ==================================================
@@ -2104,18 +2497,31 @@ for figure_number, figure_name in zip(
         figure_number
     )
 
-    output_path = (
-        results_dir
-        / f"{figure_name}.png"
+    safe_figure_name = "".join(
+        character
+        for character in figure_name
+        if character.isalnum()
+        or character in ("_", "-")
     )
 
+    output_path = (
+        results_dir
+        / f"{safe_figure_name}.png"
+    )
+
+    print(
+        f"Saving figure to: {output_path}"
+    )
 
     figure.savefig(
-        output_path,
+        str(output_path),
         dpi=300,
         bbox_inches="tight"
     )
 
+    plt.close(
+        figure
+    )
 
 print()
 
@@ -2124,4 +2530,4 @@ print(
     f"{results_dir}"
 )
 
-plt.show()
+plt.close("all")
