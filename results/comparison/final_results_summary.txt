@@ -4,22 +4,22 @@ FINAL RESULT COMPARISON
 Nominal scenario
 ----------------
 Camera / EKF updates:
-80
+32
 
 Position RMSE:
-0.027431 m
+0.027110 m
 
 Lateral RMSE:
-0.088739 m
+0.088653 m
 
 Heading RMSE:
-9.537 deg
+8.896 deg
 
 Final planar docking error:
-0.008778 m
+0.010754 m
 
 Final heading error:
-2.351 deg
+3.140 deg
 
 
 Obstacle scenario
@@ -46,20 +46,20 @@ Final heading error:
 Comparison
 ----------
 Position RMSE increased by approximately
-42.6% in the obstacle scenario.
+44.3% in the obstacle scenario.
 
 Lateral RMSE increased by approximately
-55.4% in the obstacle scenario.
+55.6% in the obstacle scenario.
 
 Heading RMSE increased by approximately
-172.1% because of the deliberate
+191.7% because of the deliberate
 obstacle-avoidance turn and recovery manoeuvre.
 
 Despite the larger transient deviations, the final docking
 accuracy remained similar:
 
 Nominal planar docking error:
-8.8 mm
+10.8 mm
 
 Obstacle planar docking error:
 4.9 mm

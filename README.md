@@ -374,15 +374,15 @@ The comparison script reads the final nominal and obstacle metrics and generates
 
 | Metric | Nominal | Obstacle |
 |---|---:|---:|
-| Camera / EKF updates | 80 | 23 |
-| Final localisation error | 0.01237 m | 0.02003 m |
-| Position RMSE | 0.02743 m | 0.03912 m |
-| Lateral RMSE | 0.08874 m | 0.13791 m |
-| Heading RMSE | 9.537° | 25.951° |
-| Final planar docking error | 0.00878 m | **0.00488 m** |
-| Final heading error | −2.351° | 2.258° |
+| Camera / EKF updates | 32 | 23 |
+| Final localisation error | 0.01274 m | 0.02003 m |
+| Position RMSE | 0.02711 m | 0.03912 m |
+| Lateral RMSE | 0.08865 m | 0.13791 m |
+| Heading RMSE | 8.896° | 25.951° |
+| Final planar docking error | 0.01075 m | **0.00488 m** |
+| Final heading error | -3.140° | 2.258° |
 
-The obstacle case increases transient localisation and tracking error because the robot deliberately departs from the nominal path during avoidance. Despite that disturbance, it recovers and finishes with a planar docking error of approximately **4.9 mm**, compared with approximately **8.8 mm** in the nominal run.
+The obstacle case increases transient localisation and tracking error because the robot deliberately departs from the nominal path during avoidance. Despite that disturbance, it recovers and finishes with a planar docking error of approximately **4.9 mm**, compared with approximately **10.8 mm** in the nominal run. Both trials use the same final docking target of **x = 1.30 m**, enabling a direct robustness comparison.
 
 ### Comparison figures
 

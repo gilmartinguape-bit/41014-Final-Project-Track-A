@@ -186,14 +186,14 @@ A, B, K = design_lqr(
 # ==================================================
 
 target_pose = np.array([
-    1.20,
+    1.30,
     0.0,
     0.0
 ])
 
 target_x = target_pose[0]
 
-final_docking_start_x = 0.95
+final_docking_start_x = 1.05
 
 slow_distance = 0.50
 
