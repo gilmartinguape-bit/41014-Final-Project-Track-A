@@ -6,6 +6,54 @@
 **Core pipeline:** Wheel encoders + camera/ArUco → EKF → LQR / final pose controller  
 **Robustness extension:** LiDAR safety override, obstacle recovery, side-obstacle assist and command smoothing
 
+## Integrated Project Submission
+
+This GitHub Project Page contains the complete submission for the **41014 Sensors and Control for Mechatronic Systems Integrated Project**, including the final simulation video, source code, generated results, and instructions required to reproduce the simulations.
+
+### Integrated Project video
+
+Click the image below to view the final Integrated Project simulation video.
+
+[![Watch the Integrated Project Video](screenshot.png)](results/compilation/41014_robot_simulation_compilation.mp4)
+
+**Direct video link:**  
+[41014 Integrated Project — Final Simulation Video](results/compilation/41014_robot_simulation_compilation.mp4)
+
+The video presents the final **nominal docking** and **obstacle-avoidance docking** scenarios using the TurtleBot3 Waffle Pi model, EKF state estimation, LQR approach control, final pose control, ArUco vision updates, and LiDAR-based obstacle avoidance.
+
+### Project code
+
+The complete project code is available directly in this repository.
+
+| Component | Source |
+|---|---|
+| Final nominal simulation | [`scripts/simulate_mujoco_nominal.py`](scripts/simulate_mujoco_nominal.py) |
+| Final obstacle simulation | [`scripts/simulate_mujoco_obstacle_trial.py`](scripts/simulate_mujoco_obstacle_trial.py) |
+| Nominal vs obstacle comparison | [`scripts/compare_final_results.py`](scripts/compare_final_results.py) |
+| Robot model | [`src/model.py`](src/model.py) |
+| Sensor models | [`src/sensors.py`](src/sensors.py) |
+| EKF estimator | [`src/ekf.py`](src/ekf.py) |
+| LQR and docking controller | [`src/controller.py`](src/controller.py) |
+| LiDAR processing and safety logic | [`src/lidar.py`](src/lidar.py) |
+| Camera / ArUco vision processing | [`src/vision.py`](src/vision.py) |
+| Configuration parameters | [`src/config.py`](src/config.py) |
+| Complete source-code folder | [`src/`](src/) |
+| Complete simulation-script folder | [`scripts/`](scripts/) |
+| MuJoCo environment and robot assets | [`assets/`](assets/) |
+| Python dependencies | [`requirements.txt`](requirements.txt) |
+
+### Final results
+
+The final executed results are also stored directly in the repository:
+
+- [Nominal simulation results](results/nominal/)
+- [Obstacle simulation results](results/obstacle/)
+- [Nominal vs obstacle comparison results](results/comparison/)
+- [Final Integrated Project video](results/compilation/41014_robot_simulation_compilation.mp4)
+
+Installation and execution instructions are provided in the **Installation** and **Run instructions** sections below.
+
+---
 ## Project overview
 
 This project implements an end-to-end sensing, estimation and control pipeline for a differential-drive mobile robot in MuJoCo. The robot estimates its planar pose from noisy wheel-encoder measurements and intermittent ArUco-based camera measurements, follows a docking path using an EKF-informed controller, avoids an obstacle using LiDAR, recovers toward the docking line, and finishes at the target pose.
@@ -496,7 +544,7 @@ Outputs are written to `results/comparison/`.
 │   ├── nominal/
 │   ├── obstacle/
 │   ├── comparison/
-|   └── compilation/       # Final marker-facing simulation compilation
+|   └── compilation/        # Final Integrated Project video
 |
 ├── requirements.txt
 ├── screenshot.png
