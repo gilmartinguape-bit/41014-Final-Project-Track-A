@@ -131,7 +131,8 @@ v = \frac{r}{2}\left(\omega_R+\omega_L\right),
 | Maximum forward speed | 0.18 m/s |
 | Maximum forward acceleration | 0.12 m/s² |
 | Maximum angular acceleration during normal control | 1.5 rad/s² |
-| Simulation duration | 25 s |
+| Nominal simulation duration | 20 s |
+| Obstacle simulation duration | 25 s |
 
 ---
 
@@ -319,12 +320,14 @@ The controller switches to final pose docking when
 |---|---:|
 | Final docking start \(x\) | 1.05 m |
 | Docking target \(x\) | 1.30 m |
-| Slow-down distance | 0.50 m |
-| Stop tolerance | 0.03 m |
+| Approach slow-down distance | 0.50 m |
+| Approach forward-speed stop tolerance | 0.03 m |
+| Final pose position tolerance | 0.025 m |
+| Final pose heading tolerance | 3° |
 | Final docking maximum angular speed | 0.5 rad/s |
 | Final heading alignment gain | 0.8 |
 
-### Command smoothing and handovers
+### Obstacle-scenario command smoothing and handovers
 
 - **Recovery-to-normal handover:** 0.60 s blend from recovery speed back to nominal control.
 - **LQR-to-final-dock handover:** 0.60 s blend between the last LQR command and the final pose-controller command.
@@ -372,6 +375,8 @@ The whole-run heading RMSE is intentionally larger because it includes the obsta
 
 The comparison script reads the final nominal and obstacle metrics and generates the comparison plots under `results/comparison/`.
 
+The obstacle trial uses a longer simulation window to accommodate the avoidance and recovery manoeuvre; therefore, whole-run RMSE values represent each complete scenario rather than identical-duration trials.
+
 | Metric | Nominal | Obstacle |
 |---|---:|---:|
 | Camera / EKF updates | 32 | 23 |
@@ -405,6 +410,12 @@ The obstacle case increases transient localisation and tracking error because th
 #### Camera update comparison
 
 ![Nominal vs obstacle camera update comparison](results/comparison/camera_update_comparison.png)
+
+### Final simulation compilation
+
+The final compilation combines the nominal and obstacle trials, preserves 1.0× simulation-time playback, and includes a quantitative comparison of both scenarios.
+
+[View the final simulation compilation](results/compilation/41014_robot_simulation_compilation.mp4)
 
 ---
 
@@ -484,7 +495,9 @@ Outputs are written to `results/comparison/`.
 ├── results/
 │   ├── nominal/
 │   ├── obstacle/
-│   └── comparison/
+│   ├── comparison/
+|   └── compilation/       # Final marker-facing simulation compilation
+|
 ├── requirements.txt
 ├── screenshot.png
 └── README.md

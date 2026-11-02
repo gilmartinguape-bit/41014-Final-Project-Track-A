@@ -163,6 +163,7 @@ obstacle = read_metrics_csv(
 
 required_metrics = [
     "camera_updates",
+    "final_true_x_m",
     "final_localisation_error_m",
     "position_rmse_m",
     "true_lateral_rmse_m",
@@ -273,6 +274,12 @@ with open(
         "percent_change"
     ])
 
+    magnitude_metrics = {
+        "Final X docking error",
+        "Final Y docking error",
+        "Final heading error",
+    }
+
     for (
         metric_name,
         nominal_value,
@@ -280,16 +287,39 @@ with open(
         unit
     ) in comparison_rows:
 
+        # For signed final errors, compare error magnitudes.
+        # Keep the original signed values in the nominal
+        # and obstacle columns.
+        if metric_name in magnitude_metrics:
+
+            nominal_for_change = abs(
+                nominal_value
+            )
+
+            obstacle_for_change = abs(
+                obstacle_value
+            )
+
+        else:
+
+            nominal_for_change = (
+                nominal_value
+            )
+
+            obstacle_for_change = (
+                obstacle_value
+            )
+
         absolute_change = (
-            obstacle_value
-            - nominal_value
+            obstacle_for_change
+            - nominal_for_change
         )
 
-        if nominal_value != 0:
+        if nominal_for_change != 0:
 
             percent_change = (
                 absolute_change
-                / abs(nominal_value)
+                / abs(nominal_for_change)
                 * 100.0
             )
 
@@ -325,7 +355,7 @@ for (
     print(
         f"{metric_name:<30}"
         f"Nominal: {nominal_value:>10.5f} {unit:<5}"
-        f"Obstacle: {obstacle_value:>10.5f} {unit}"
+        f"  Obstacle: {obstacle_value:>10.5f} {unit}"
     )
 
 print()
@@ -687,8 +717,15 @@ plt.scatter(
     label="Initial robot position"
 )
 
+# Recover the docking target from the nominal final result:
+# final_x_docking_error = final_true_x - target_x
+dock_target_x = (
+    nominal["final_true_x_m"]
+    - nominal["final_x_docking_error_m"]
+)
+
 plt.scatter(
-    1.20,
+    dock_target_x,
     0.0,
     marker="x",
     s=100,
@@ -852,7 +889,7 @@ Obstacle planar docking error:
 {obstacle_planar * 1000.0:.1f} mm
 
 Both scenarios also finished with an absolute heading error
-below 3 degrees.
+of approximately 3.2 degrees or less.
 
 The obstacle scenario therefore demonstrates that the robot
 can recover from a LiDAR-triggered avoidance manoeuvre and

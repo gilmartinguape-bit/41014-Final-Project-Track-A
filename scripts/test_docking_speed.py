@@ -1,7 +1,7 @@
 from src.controller import docking_forward_speed
 
 
-target_x = 1.20
+target_x = 1.30
 max_speed = 0.18
 slow_distance = 0.50
 stop_tolerance = 0.03
@@ -13,8 +13,9 @@ test_positions = [
     0.8,
     1.0,
     1.15,
-    1.18,
-    1.20
+    1.25,
+    1.28,
+    1.30
 ]
 
 

@@ -65,7 +65,7 @@ Obstacle planar docking error:
 4.9 mm
 
 Both scenarios also finished with an absolute heading error
-below 3 degrees.
+of approximately 3.2 degrees or less.
 
 The obstacle scenario therefore demonstrates that the robot
 can recover from a LiDAR-triggered avoidance manoeuvre and

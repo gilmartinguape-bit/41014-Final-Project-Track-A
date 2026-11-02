@@ -170,7 +170,7 @@ A, B, K = design_lqr(
 # DOCKING TARGET
 # ==================================================
 
-target_x = 1.20
+target_x = 1.30
 
 slow_distance = 0.50
 

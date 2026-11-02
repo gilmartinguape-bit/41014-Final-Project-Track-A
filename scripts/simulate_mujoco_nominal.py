@@ -1862,7 +1862,7 @@ plt.ylabel(
 )
 
 plt.title(
-    "Full MuJoCo EKF + LQR Docking"
+    "Full MuJoCo EKF + LQR + Pose-Control Docking"
 )
 
 plt.axis(
